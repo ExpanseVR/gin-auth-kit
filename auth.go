@@ -1,104 +1,91 @@
-// Package auth provides authentication and authorization functionality
-//
-// Public API:
-//   - NewAuthService() - Main entry point, use this in your application
-//   - AuthService - Primary service for all authentication operations
-//   - AuthMiddleware interface - For implementing custom auth methods
-//
-// Private implementation details:
-//   - JWTMiddleware, newJWTMiddleware() - Internal JWT implementation
-//   - Helper functions - Internal utilities
-//
-// Usage:
-//
-//	authService, err := auth.NewAuthService(opts, userRepo, logger)
-//	router.POST("/login", authService.LoginHandler())
-//	router.Use(authService.MiddlewareFunc())
 package auth
 
 import (
-	"github.com/ExpanseVR/gin-auth-kit/utils"
+	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 )
 
-// AuthMiddleware defines the interface for authentication middleware implementations
+// AuthMiddleware defines the interface that all auth middleware must implement
+// This allows for different auth strategies (JWT, session, etc.)
 type AuthMiddleware interface {
-	LoginHandler() gin.HandlerFunc
-	MiddlewareFunc() gin.HandlerFunc
-	RefreshHandler() gin.HandlerFunc
-	LogoutHandler() gin.HandlerFunc
+	MiddlewareFunc() gin.HandlerFunc // Function for protecting routes
+	LoginHandler() gin.HandlerFunc // Returns the Gin handler for user login
+	LogoutHandler() gin.HandlerFunc // Returns the Gin handler for user logout
+	RefreshHandler() gin.HandlerFunc // Returns the Gin handler for token refresh
 }
 
-// AuthService provides centralized authentication functionality
-// It can orchestrate multiple authentication methods (JWT, API keys, OAuth, etc.)
-// This is the main public interface - use this instead of individual middleware types
 type AuthService struct {
-	// Primary authentication method (currently JWT)
-	primaryAuth AuthMiddleware
-
-	// Session store for OAuth and other stateful authentication
-	sessionStore *sessions.CookieStore
-
-	// User repository for data operations
-	userRepo UserRepository
-
-	// Logger for auth operations
-	logger Logger
-
-	// Configuration
-	config *AuthOptions
+	middleware   AuthMiddleware
+	sessionStore sessions.Store
 }
 
 // NewAuthService creates a new authentication service
 // This is the main entry point - use this instead of creating middleware directly
-func NewAuthService(opts *AuthOptions, userRepo UserRepository, logger Logger) (*AuthService, error) {
+func NewAuthService(opts *AuthOptions) (*AuthService, error) {
+	// Validate required callback functions
+	if opts.FindUserByEmail == nil {
+		return nil, fmt.Errorf("FindUserByEmail callback is required")
+	}
+	if opts.FindUserByID == nil {
+		return nil, fmt.Errorf("FindUserByID callback is required")
+	}
+
 	// Initialize JWT middleware as primary auth method
-	jwtMiddleware, err := newJWTMiddleware(opts, userRepo, logger)
+	jwtMiddleware, err := newJWTMiddleware(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	// Initialize secure session store for OAuth
+	// Initialize session store for OAuth and other stateful auth flows
 	sessionStore := sessions.NewCookieStore([]byte(opts.SessionSecret))
-	sessionStore.MaxAge(opts.SessionMaxAge)
-	sessionStore.Options.Domain = opts.SessionDomain
-	sessionStore.Options.Secure = opts.SessionSecure
-	sessionStore.Options.HttpOnly = true
-	sessionStore.Options.SameSite = utils.ParseSameSite(opts.SessionSameSite)
+	sessionStore.Options = &sessions.Options{
+		Domain:   opts.SessionDomain,
+		MaxAge:   opts.SessionMaxAge,
+		HttpOnly: true,
+		Secure:   opts.SessionSecure,
+		SameSite: parseSameSite(opts.SessionSameSite),
+	}
 
 	return &AuthService{
-		primaryAuth:  jwtMiddleware,
+		middleware:   jwtMiddleware,
 		sessionStore: sessionStore,
-		userRepo:     userRepo,
-		logger:       logger,
-		config:       opts,
 	}, nil
 }
 
-// Primary authentication methods (delegates to JWT middleware)
-func (s *AuthService) LoginHandler() gin.HandlerFunc {
-	return s.primaryAuth.LoginHandler()
+// Wrapper functions for the middleware and session store
+func (as *AuthService) MiddlewareFunc() gin.HandlerFunc {
+	return as.middleware.MiddlewareFunc()
 }
 
-func (s *AuthService) MiddlewareFunc() gin.HandlerFunc {
-	return s.primaryAuth.MiddlewareFunc()
+func (as *AuthService) LoginHandler() gin.HandlerFunc {
+	return as.middleware.LoginHandler()
 }
 
-func (s *AuthService) RefreshHandler() gin.HandlerFunc {
-	return s.primaryAuth.RefreshHandler()
+func (as *AuthService) LogoutHandler() gin.HandlerFunc {
+	return as.middleware.LogoutHandler()
 }
 
-func (s *AuthService) LogoutHandler() gin.HandlerFunc {
-	return s.primaryAuth.LogoutHandler()
+func (as *AuthService) RefreshHandler() gin.HandlerFunc {
+	return as.middleware.RefreshHandler()
 }
 
-// OAuth and session-based authentication methods
-func (s *AuthService) SessionStore() *sessions.CookieStore {
-	return s.sessionStore
+func (as *AuthService) GetSessionStore() sessions.Store {
+	return as.sessionStore
 }
 
-// Future methods for additional auth types:
-// func (s *AuthService) APIKeyMiddleware() gin.HandlerFunc { ... }
-// func (s *AuthService) OAuthCallbackHandler(provider string) gin.HandlerFunc { ... }
-// func (s *AuthService) SetPrimaryAuth(auth AuthMiddleware) { s.primaryAuth = auth }
+// parseSameSite helper function (moved from utils to keep it internal)
+func parseSameSite(sameSite string) http.SameSite {
+	switch sameSite {
+	case "Lax":
+		return http.SameSiteLaxMode
+	case "Strict":
+		return http.SameSiteStrictMode
+	case "None":
+		return http.SameSiteNoneMode
+	default:
+		return http.SameSiteDefaultMode
+	}
+} 

@@ -1,23 +1,21 @@
 package auth
 
 import (
-	"time"
-
-	"github.com/ExpanseVR/gin-auth-kit/utils"
 	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
+
+	"github.com/ExpanseVR/gin-auth-kit/utils"
 )
 
-// JWTMiddleware wraps the gin-jwt middleware and implements AuthMiddleware interface
+// JWTMiddleware implements AuthMiddleware using JWT tokens
 type JWTMiddleware struct {
 	*jwt.GinJWTMiddleware
 }
 
-// Ensure JWTMiddleware implements AuthMiddleware interface
+// Verify JWTMiddleware implements AuthMiddleware interface
 var _ AuthMiddleware = (*JWTMiddleware)(nil)
 
-// newJWTMiddleware creates a new JWT middleware instance (private - use AuthService instead)
-func newJWTMiddleware(opts *AuthOptions, userRepo UserRepository, logger Logger) (*JWTMiddleware, error) {
+func newJWTMiddleware(opts *AuthOptions) (*JWTMiddleware, error) {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:           opts.JWTRealm,
 		Key:             []byte(opts.JWTSecret),
@@ -25,13 +23,12 @@ func newJWTMiddleware(opts *AuthOptions, userRepo UserRepository, logger Logger)
 		MaxRefresh:      opts.RefreshExpireTime,
 		IdentityKey:     opts.IdentityKey,
 		PayloadFunc:     PayloadFunc,
-		IdentityHandler: IdentityHandler(userRepo, logger),
-		Authenticator:   Authenticator(userRepo, logger),
+		IdentityHandler: IdentityHandler(opts),
+		Authenticator:   Authenticator(opts),
 		Authorizator:    Authorizator,
 		Unauthorized:    Unauthorized,
 		TokenLookup:     "header: Authorization, query: token, cookie: jwt",
 		TokenHeadName:   "Bearer",
-		TimeFunc:        time.Now,
 
 		// Enable automatic token refresh
 		SendCookie:     true,
@@ -43,44 +40,26 @@ func newJWTMiddleware(opts *AuthOptions, userRepo UserRepository, logger Logger)
 	})
 
 	if err != nil {
-		logger.Error().Err(err).Msg("Failed to create JWT middleware")
 		return nil, err
 	}
 
-	// Initialize middleware
-	err = authMiddleware.MiddlewareInit()
-	if err != nil {
-		logger.Error().Err(err).Msg("Failed to initialize JWT middleware")
-		return nil, err
-	}
-
-	return &JWTMiddleware{authMiddleware}, nil
+	return &JWTMiddleware{
+		GinJWTMiddleware: authMiddleware,
+	}, nil
 }
 
-// LoginHandler returns the login handler (implements AuthMiddleware)
-func (mw *JWTMiddleware) LoginHandler() gin.HandlerFunc {
-	return mw.GinJWTMiddleware.LoginHandler
+func (j *JWTMiddleware) MiddlewareFunc() gin.HandlerFunc {
+	return j.GinJWTMiddleware.MiddlewareFunc()
 }
 
-// MiddlewareFunc returns the JWT middleware function (implements AuthMiddleware)
-func (mw *JWTMiddleware) MiddlewareFunc() gin.HandlerFunc {
-	return mw.GinJWTMiddleware.MiddlewareFunc()
+func (j *JWTMiddleware) LoginHandler() gin.HandlerFunc {
+	return j.GinJWTMiddleware.LoginHandler
 }
 
-// RefreshHandler returns the refresh token handler (implements AuthMiddleware)
-func (mw *JWTMiddleware) RefreshHandler() gin.HandlerFunc {
-	return mw.GinJWTMiddleware.RefreshHandler
+func (j *JWTMiddleware) LogoutHandler() gin.HandlerFunc {
+	return j.GinJWTMiddleware.LogoutHandler
 }
 
-// LogoutHandler handles token logout/invalidation (implements AuthMiddleware)
-func (mw *JWTMiddleware) LogoutHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// With stateless JWT, we primarily rely on token expiration
-		// Clear the cookie if it exists
-		c.SetCookie("jwt", "", -1, "/", "", false, true)
-
-		c.JSON(200, gin.H{
-			"message": "Successfully logged out",
-		})
-	}
-}
+func (j *JWTMiddleware) RefreshHandler() gin.HandlerFunc {
+	return j.GinJWTMiddleware.RefreshHandler
+} 
