@@ -7,10 +7,6 @@ import (
 )
 
 // JWT middleware callback functions for gin-jwt
-// These functions are called automatically by the gin-jwt middleware at specific points
-
-// PayloadFunc extracts user data for JWT claims
-// Called when: User successfully authenticates - builds the JWT token payload
 func PayloadFunc(data interface{}) jwt.MapClaims {
 	if v, ok := data.(User); ok {
 		return jwt.MapClaims{
@@ -23,7 +19,6 @@ func PayloadFunc(data interface{}) jwt.MapClaims {
 }
 
 // IdentityHandler retrieves user from token claims
-// Called when: Protected route receives JWT token - extracts user identity
 func IdentityHandler(userRepo UserRepository, logger Logger) func(c *gin.Context) interface{} {
 	return func(c *gin.Context) interface{} {
 		claims := jwt.ExtractClaims(c)
@@ -52,7 +47,6 @@ func IdentityHandler(userRepo UserRepository, logger Logger) func(c *gin.Context
 }
 
 // Authenticator validates login credentials
-// Called when: User attempts to login - validates email/password combination
 func Authenticator(userRepo UserRepository, logger Logger) func(c *gin.Context) (interface{}, error) {
 	return func(c *gin.Context) (interface{}, error) {
 		var loginRequest struct {
@@ -64,14 +58,12 @@ func Authenticator(userRepo UserRepository, logger Logger) func(c *gin.Context) 
 			return "", jwt.ErrMissingLoginValues
 		}
 
-		// Get user by email
 		user, err := userRepo.FindByEmail(loginRequest.Email)
 		if err != nil {
 			logger.Error().Err(err).Str("email", loginRequest.Email).Msg("Failed to find user by email")
 			return nil, jwt.ErrFailedAuthentication
 		}
 
-		// Verify password using bcrypt
 		if err := utils.VerifyPassword(user.GetPasswordHash(), loginRequest.Password); err != nil {
 			logger.Warn().Str("email", loginRequest.Email).Msg("Failed password verification")
 			return nil, jwt.ErrFailedAuthentication
@@ -82,7 +74,6 @@ func Authenticator(userRepo UserRepository, logger Logger) func(c *gin.Context) 
 }
 
 // Authorizator checks user permissions/roles
-// Called when: User accesses protected route - determines if access should be granted
 func Authorizator(data interface{}, c *gin.Context) bool {
 	if user, ok := data.(User); ok {
 		// Basic authorization - user exists and is valid
@@ -93,7 +84,6 @@ func Authorizator(data interface{}, c *gin.Context) bool {
 }
 
 // Unauthorized handles authentication failures
-// Called when: Authentication/authorization fails - sends error response
 func Unauthorized(c *gin.Context, code int, message string) {
 	c.JSON(code, gin.H{
 		"error":   "Unauthorized",
