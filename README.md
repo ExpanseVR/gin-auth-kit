@@ -1,27 +1,23 @@
 # gin-auth-kit
 
-Complete JWT and OAuth authentication toolkit for Gin web framework with clean, interface-based design.
+Complete JWT authentication toolkit for Gin web framework with clean, callback-based design.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ExpanseVR/gin-auth-kit.svg)](https://pkg.go.dev/github.com/ExpanseVR/gin-auth-kit)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Features
 
-- **JWT Authentication** - Complete JWT token management with both cookie and header support for web and API clients
-- **Interface-Based Design** - Clean abstractions for User, UserRepository, and Logger
-- **Session Management** - Built-in session store for OAuth flows and stateful auth
-- **Password Security** - bcrypt password hashing utilities with configurable cost
-- **HTTP Utilities** - SameSite cookie parsing and web security helpers
-- **Configurable Options** - Flexible AuthOptions for JWT settings and security config
-- **Middleware Ready** - Gin-compatible middleware for protected routes
-- **Database Agnostic** - Works with any database through UserRepository interface
-- **Logger Agnostic** - Works with any logging library through Logger interface
-- **Production Ready** - Proper error handling, security defaults, Docker support
+- **Simple Setup** - Just provide two callback functions, no complex adapters needed
+- **Hybrid Token Support** - Automatic cookie + header + query parameter JWT handling
+- **Database Agnostic** - Works with any database through simple callback functions
+- **Production Ready** - Proper error handling, security defaults, bcrypt password hashing
+- **Zero Dependencies** - No coupling to GORM, Zerolog, or any specific libraries
+- **Easy Testing** - Mock callback functions instead of complex interfaces
 
 ## Installation
 
 ```bash
-go get github.com/ExpanseVR/gin-auth-kit
+go get github.com/ExpanseVR/gin-auth-kit@v1.0.1
 ```
 
 ## Quick Start
@@ -35,49 +31,22 @@ type User struct {
     PasswordHash string `json:"-"`
     Role         string `json:"role"`
 }
-
-// Implement the auth.User interface
-func (u *User) GetID() uint           { return u.ID }
-func (u *User) GetEmail() string      { return u.Email }
-func (u *User) GetRole() string       { return u.Role }
-func (u *User) GetPasswordHash() string { return u.PasswordHash }
 ```
 
-### 2. Create Repository Adapter
+### 2. Setup Authentication
 
 ```go
-type UserRepository struct {
-    db *gorm.DB
-}
+package main
 
-func (r *UserRepository) FindByEmail(email string) (auth.User, error) {
-    var user User
-    err := r.db.Where("email = ?", email).First(&user).Error
-    if err != nil {
-        return nil, err
-    }
-    return &user, nil
-}
-
-func (r *UserRepository) FindByID(id uint) (auth.User, error) {
-    var user User
-    err := r.db.Where("id = ?", id).First(&user).Error
-    if err != nil {
-        return nil, err
-    }
-    return &user, nil
-}
-```
-
-### 3. Setup Authentication Service
-
-```go
-import "github.com/ExpanseVR/gin-auth-kit"
+import (
+    "time"
+    "github.com/gin-gonic/gin"
+    "github.com/ExpanseVR/gin-auth-kit"
+)
 
 func main() {
-    // Configure authentication options
     opts := &auth.AuthOptions{
-        JWTSecret:         "your-jwt-secret",
+        JWTSecret:         "your-secret-key",
         JWTRealm:         "your-app",
         TokenExpireTime:  time.Hour,
         RefreshExpireTime: 7 * 24 * time.Hour,
@@ -85,22 +54,42 @@ func main() {
         SessionSecret:    "your-session-secret",
         SessionMaxAge:    86400,
         BcryptCost:       12,
+
+        FindUserByEmail: func(email string) (auth.UserInfo, error) {
+            user, err := db.GetUserByEmail(email)
+            if err != nil {
+                return auth.UserInfo{}, err
+            }
+            return auth.UserInfo{
+                ID:           user.ID,
+                Email:        user.Email,
+                Role:         user.Role,
+                PasswordHash: user.PasswordHash,
+            }, nil
+        },
+
+        FindUserByID: func(id uint) (auth.UserInfo, error) {
+            user, err := db.GetUserByID(id)
+            if err != nil {
+                return auth.UserInfo{}, err
+            }
+            return auth.UserInfo{
+                ID:           user.ID,
+                Email:        user.Email,
+                Role:         user.Role,
+                PasswordHash: user.PasswordHash,
+            }, nil
+        },
     }
 
-    // Create adapters
-    userRepo := &UserRepository{db: db}
-    logger := &LoggerAdapter{logger: log.Logger}
-
-    // Initialize auth service
-    authService, err := auth.NewAuthService(opts, userRepo, logger)
+    authService, err := auth.NewAuthService(opts)
     if err != nil {
-        log.Fatal(err)
+        log.Fatal("Failed to create auth service:", err)
     }
 
-    // Setup Gin router
     router := gin.Default()
 
-    // Auth routes
+    // Auth endpoints
     authGroup := router.Group("/api/auth")
     {
         authGroup.POST("/login", authService.LoginHandler())
@@ -120,124 +109,123 @@ func main() {
 }
 ```
 
-### 4. Logger Adapter Example
+## Token Handling
 
-```go
-type LoggerAdapter struct {
-    logger *zerolog.Logger
-}
+gin-auth-kit supports multiple token delivery methods simultaneously:
 
-func (l *LoggerAdapter) Error() auth.LogEvent {
-    return &LogEventAdapter{event: l.logger.Error()}
-}
-
-func (l *LoggerAdapter) Warn() auth.LogEvent {
-    return &LogEventAdapter{event: l.logger.Warn()}
-}
-
-func (l *LoggerAdapter) Debug() auth.LogEvent {
-    return &LogEventAdapter{event: l.logger.Debug()}
-}
-
-type LogEventAdapter struct {
-    event *zerolog.Event
-}
-
-func (e *LogEventAdapter) Err(err error) auth.LogEvent {
-    return &LogEventAdapter{event: e.event.Err(err)}
-}
-
-func (e *LogEventAdapter) Msg(msg string) {
-    e.event.Msg(msg)
-}
-
-func (e *LogEventAdapter) Str(key, val string) auth.LogEvent {
-    return &LogEventAdapter{event: e.event.Str(key, val)}
-}
-
-func (e *LogEventAdapter) Uint(key string, val uint) auth.LogEvent {
-    return &LogEventAdapter{event: e.event.Uint(key, val)}
-}
-```
-
-# Token Handling
-
-gin-auth-kit supports **multiple token delivery methods** for maximum flexibility:
-
-### **Cookie-Based (Recommended for Web Apps)**
-
-- **Automatic:** Tokens stored in secure, HTTP-only cookies
-- **CSRF Protection:** Built-in SameSite cookie settings
-- **Frontend:** No token management required
-- **Use Case:** Traditional web applications, server-side rendered apps
+### Cookie-Based (Web Apps)
 
 ```javascript
-// Frontend - No token management needed!
 fetch("/api/protected/profile", {
-  method: "GET",
-  credentials: "include", // Include cookies automatically
+  credentials: "include", // Cookies sent automatically
 });
 ```
 
-### **Header-Based (API/SPA)**
-
-- **Manual:** Frontend manages token storage and headers
-- **Flexible:** Works with SPAs, mobile apps, API clients
-- **CORS-friendly:** Standard Authorization header
-- **Use Case:** Single-page applications, mobile apps, API integrations
+### Header-Based (APIs/SPAs)
 
 ```javascript
-// Frontend - Manual token management
 const token = localStorage.getItem("jwt_token");
 fetch("/api/protected/profile", {
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
+  headers: { Authorization: `Bearer ${token}` },
 });
 ```
 
-### **Hybrid Mode (Default)**
+### Query Parameter (Special Cases)
 
-gin-auth-kit automatically supports **both approaches simultaneously**:
+```javascript
+window.open(`/api/export?token=${token}`);
+```
 
-- Checks `Authorization` header first
-- Falls back to `jwt` cookie if no header
-- Also supports query parameter `?token=...` for special cases
-
-**Token Lookup Order:**
-
-1. `Authorization: Bearer <token>` header
-2. `jwt` cookie
-3. `?token=<token>` query parameter
+**Token Lookup Priority**: Header → Cookie → Query Parameter
 
 ## Configuration
 
 ### AuthOptions
 
+See [Go Reference](https://pkg.go.dev/github.com/ExpanseVR/gin-auth-kit#AuthOptions) for complete configuration options.
+
+### UserInfo Struct
+
 ```go
-type AuthOptions struct {
-    // JWT Configuration
-    JWTSecret           string
-    JWTRealm           string
-    TokenExpireTime    time.Duration
-    RefreshExpireTime  time.Duration
-    IdentityKey        string
-
-    // Session Configuration
-    SessionSecret string
-    SessionMaxAge int
-    SessionDomain string
-    SessionSecure bool
-    SessionSameSite string
-
-    // Security Settings
-    BcryptCost int
+type UserInfo struct {
+    ID           uint   `json:"id"`
+    Email        string `json:"email"`
+    Role         string `json:"role"`
+    PasswordHash string `json:"-"`
 }
 ```
 
+## API Endpoints
+
+### POST `/login`
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+
+```json
+{
+  "code": 200,
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expire": "2024-01-01T12:00:00Z"
+}
+```
+
+### POST `/refresh`
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+### POST `/logout`
+
+Invalidates the current session.
+
 ## Testing
 
-The package includes test utilities for password hashing:
+```go
+func TestAuth(t *testing.T) {
+    mockUsers := map[string]auth.UserInfo{
+        "test@example.com": {
+            ID: 1, Email: "test@example.com",
+            Role: "user", PasswordHash: "hashedpw",
+        },
+    }
+
+    opts := &auth.AuthOptions{
+        JWTSecret: "test-secret",
+        TokenExpireTime: time.Hour,
+
+        FindUserByEmail: func(email string) (auth.UserInfo, error) {
+            if user, exists := mockUsers[email]; exists {
+                return user, nil
+            }
+            return auth.UserInfo{}, errors.New("user not found")
+        },
+
+        FindUserByID: func(id uint) (auth.UserInfo, error) {
+            for _, user := range mockUsers {
+                if user.ID == id {
+                    return user, nil
+                }
+            }
+            return auth.UserInfo{}, errors.New("user not found")
+        },
+    }
+
+    authService, err := auth.NewAuthService(opts)
+    assert.NoError(t, err)
+}
+```
+
+## Password Utilities
 
 ```go
 import "github.com/ExpanseVR/gin-auth-kit/utils"
@@ -249,15 +237,17 @@ hashedPassword, err := utils.HashPassword("password123", 12)
 err := utils.VerifyPassword(hashedPassword, "password123")
 ```
 
+## Migration from v1.0.0
+
+See [CHANGELOG.md](CHANGELOG.md) for migration guide from interface-based to callback-based design.
+
 ## Roadmap
 
-- [ ] OAuth 2.0 providers (Google, Facebook, Apple)
-- [ ] Role-Based Access Control (RBAC)
-- [ ] API Key authentication
-- [ ] Rate limiting middleware
-- [ ] Account lockout protection
-- [ ] Password reset flows
-- [ ] Multi-factor authentication (MFA)
+- OAuth 2.0 providers (Google, GitHub, Apple)
+- Role-Based Access Control (RBAC)
+- API Key authentication
+- Rate limiting middleware
+- Multi-factor authentication (MFA)
 
 ## Contributing
 
@@ -269,10 +259,10 @@ err := utils.VerifyPassword(hashedPassword, "password123")
 
 ## License
 
-This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
 
 ## Acknowledgments
 
-- Built on top of [gin-jwt](https://github.com/appleboy/gin-jwt) middleware
+- Built on top of gin-jwt middleware
 - Inspired by clean architecture principles
 - Designed for production use in modern Go applications
