@@ -4,36 +4,18 @@ import (
 	"time"
 )
 
-// User represents any user type that can be authenticated
-type User interface {
-	GetID() uint
-	GetEmail() string
-	GetRole() string
-	GetPasswordHash() string
+// UserInfo represents user data returned by callback functions
+type UserInfo struct {
+	ID           uint   `json:"id"`
+	Email        string `json:"email"`
+	Role         string `json:"role"`
+	PasswordHash string `json:"-"` // Never expose password hash in JSON
 }
 
-// UserRepository handles user data operations
-type UserRepository interface {
-	FindByEmail(email string) (User, error)
-	FindByID(id uint) (User, error)
-}
+// UserFinder callback function types
+type FindUserByEmailFunc func(email string) (UserInfo, error)
+type FindUserByIDFunc func(id uint) (UserInfo, error)
 
-// Logger provides logging functionality for the auth plugin
-type Logger interface {
-	Error() LogEvent
-	Warn() LogEvent
-	Debug() LogEvent
-}
-
-// LogEvent represents a log event that can be chained
-type LogEvent interface {
-	Err(err error) LogEvent
-	Msg(msg string)
-	Str(key, val string) LogEvent
-	Uint(key string, val uint) LogEvent
-}
-
-// AuthOptions contains all configuration needed by the auth plugin
 type AuthOptions struct {
 	// JWT Configuration
 	JWTSecret           string
@@ -51,4 +33,8 @@ type AuthOptions struct {
 
 	// Security Settings
 	BcryptCost int
+
+	// Callback Functions
+	FindUserByEmail FindUserByEmailFunc
+	FindUserByID    FindUserByIDFunc
 } 
