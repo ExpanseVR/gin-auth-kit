@@ -48,8 +48,8 @@
 
 - [x] Implement `RegisterProvider` method
 - [x] Implement `GetProvider` method with error handling
-- [ ] Add provider validation logic
-- [ ] Create helper function to initialize Goth providers from OAuthProvider config
+- [x] Add provider validation logic
+- [x] Create helper function to initialize Goth providers from OAuthProvider config
 
 ### 2.3 OAuth Flow Handlers
 
@@ -106,16 +106,25 @@
 
 ## Phase 4: Testing & Documentation
 
-### 4.1 Unit Tests
+### 4.1 JWT Regression Tests
+
+- [x] Test existing JWT functionality still works
+- [x] Test AuthService initialization with JWT-only config
+- [x] Test AuthService initialization with OAuth config
+- [x] Test backward compatibility (JWT-only still works)
+- [x] Test session store integration between JWT and OAuth
+- [x] Test error handling for invalid JWT configurations
+
+### 4.2 OAuth Foundation Tests
 
 - [ ] Create test file for oauth.go
-- [ ] Add unit tests for OAuthProvider validation
-- [ ] Add unit tests for OAuthConfig validation
-- [ ] Add unit tests for provider management methods
-- [ ] Add unit tests for user mapping function
-- [ ] Add unit tests for session management
+- [ ] Test OAuthProvider validation (valid/invalid configurations)
+- [ ] Test Goth provider creation (Google, GitHub, Facebook)
+- [ ] Test OAuth service initialization
+- [ ] Test provider management methods (RegisterProvider, GetProvider)
+- [ ] Test error handling for missing/invalid OAuth config
 
-### 4.2 Integration Tests
+### 4.3 Integration Tests
 
 - [ ] Create integration test file
 - [ ] Add tests for OAuth flow with mock providers
@@ -173,7 +182,7 @@
 
 - Phase 2: Task 2.5
 - Phase 3: Tasks 3.3-3.4
-- Phase 4: Tasks 4.1-4.2
+- Phase 4: Tasks 4.1-4.2 (JWT Regression & OAuth Foundation Tests)
 
 ### Low Priority (Nice to Have)
 
