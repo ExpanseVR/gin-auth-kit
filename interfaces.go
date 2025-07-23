@@ -35,6 +35,10 @@ type OAuthConfig struct {
 	BaseURL      string                   `json:"base_url"`
 	SuccessURL   string                   `json:"success_url"`
 	FailureURL   string                   `json:"failure_url"`
+	
+	// User management callbacks
+	FindUserByEmail FindUserByEmailFunc `json:"-"`
+	FindUserByID    FindUserByIDFunc    `json:"-"`
 }
 
 // OAuthService defines the interface for OAuth operations

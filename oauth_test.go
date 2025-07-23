@@ -312,7 +312,7 @@ func TestOAuthServiceInterface(t *testing.T) {
 	completeAuthHandler := oauthService.CompleteAuthHandler()
 	assert.NotNil(t, completeAuthHandler)
 
-	// Test user mapping (should return ErrNotImplemented for now)
+	// Test user mapping (now implemented)
 	gothUser := goth.User{
 		UserID: "123",
 		Email:  "test@example.com",
@@ -320,9 +320,10 @@ func TestOAuthServiceInterface(t *testing.T) {
 	}
 	
 	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
-	assert.Error(t, err)
-	assert.Equal(t, ErrNotImplemented, err)
-	assert.Equal(t, UserInfo{}, userInfo)
+	assert.NoError(t, err)
+	assert.Equal(t, "test@example.com", userInfo.Email)
+	assert.Equal(t, "customer", userInfo.Role)
+	assert.Equal(t, uint(123), userInfo.ID)
 }
 
 // TestOAuthErrorHandling tests OAuth-specific error scenarios
@@ -374,4 +375,159 @@ func TestOAuthErrorHandling(t *testing.T) {
 			assert.Equal(t, ErrProviderNotFound, err)
 		})
 	}
+} 
+
+// TestUserMapping tests the MapGothUserToUserInfo functionality
+func TestUserMapping(t *testing.T) {
+	config := &OAuthConfig{
+		Providers: map[string]OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:    "http://localhost:8080",
+		SuccessURL: "/dashboard",
+		FailureURL: "/login",
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthService := NewOAuthService(config)
+	require.NotNil(t, oauthService)
+
+	tests := []struct {
+		name        string
+		gothUser    goth.User
+		expectError bool
+		errorMsg    string
+		expectedUser UserInfo
+	}{
+		{
+			name: "Valid Goth User with ID",
+			gothUser: goth.User{
+				UserID: "123",
+				Email:  "test@example.com",
+				Name:   "Test User",
+			},
+			expectError: false,
+			expectedUser: UserInfo{
+				ID:    1, // Mock function returns existing user ID
+				Email: "test@example.com",
+				Role:  "customer",
+			},
+		},
+		{
+			name: "Valid Goth User without ID",
+			gothUser: goth.User{
+				Email: "newuser@example.com",
+				Name:  "New User",
+			},
+			expectError: false,
+			expectedUser: UserInfo{
+				ID:    0, // No ID for new users
+				Email: "newuser@example.com",
+				Role:  "customer",
+			},
+		},
+		{
+			name: "Goth User with invalid ID",
+			gothUser: goth.User{
+				UserID: "invalid-id",
+				Email:  "test@example.com",
+				Name:   "Test User",
+			},
+			expectError: false,
+			expectedUser: UserInfo{
+				ID:    1, // Mock function returns existing user ID
+				Email: "test@example.com",
+				Role:  "customer",
+			},
+		},
+		{
+			name: "Missing Email",
+			gothUser: goth.User{
+				UserID: "123",
+				Name:   "Test User",
+				// Email: missing
+			},
+			expectError: true,
+			errorMsg:    "oauth user email is required",
+		},
+		{
+			name: "Empty Email",
+			gothUser: goth.User{
+				UserID: "123",
+				Email:  "",
+				Name:   "Test User",
+			},
+			expectError: true,
+			errorMsg:    "oauth user email is required",
+		},
+		{
+			name: "Existing User by Email",
+			gothUser: goth.User{
+				UserID: "999", // Different ID
+				Email:  "test@example.com", // Existing email
+				Name:   "Test User",
+			},
+			expectError: false,
+			expectedUser: UserInfo{
+				ID:    1, // Should return existing user ID
+				Email: "test@example.com",
+				Role:  "customer",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			userInfo, err := oauthService.MapGothUserToUserInfo(tt.gothUser)
+			
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedUser.Email, userInfo.Email)
+				assert.Equal(t, tt.expectedUser.Role, userInfo.Role)
+				assert.Equal(t, tt.expectedUser.ID, userInfo.ID)
+			}
+		})
+	}
+}
+
+// TestUserMappingWithoutCallbacks tests user mapping when callbacks are not provided
+func TestUserMappingWithoutCallbacks(t *testing.T) {
+	config := &OAuthConfig{
+		Providers: map[string]OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:    "http://localhost:8080",
+		SuccessURL: "/dashboard",
+		FailureURL: "/login",
+		// No callbacks provided
+	}
+
+	oauthService := NewOAuthService(config)
+	require.NotNil(t, oauthService)
+
+	gothUser := goth.User{
+		UserID: "123",
+		Email:  "test@example.com",
+		Name:   "Test User",
+	}
+
+	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "test@example.com", userInfo.Email)
+	assert.Equal(t, "customer", userInfo.Role)
+	assert.Equal(t, uint(123), userInfo.ID)
 } 
