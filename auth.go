@@ -20,6 +20,7 @@ type AuthMiddleware interface {
 type AuthService struct {
 	middleware   AuthMiddleware
 	sessionStore sessions.Store
+	oauthService OAuthService
 }
 
 // NewAuthService creates a new authentication service
@@ -49,9 +50,20 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 		SameSite: parseSameSite(opts.SessionSameSite),
 	}
 
+	// Initialize OAuth service if configuration is provided
+	var oauthService OAuthService
+	if opts.OAuth != nil {
+		// Use the session store from OAuth config if provided, otherwise use the default one
+		if opts.OAuth.SessionStore == nil {
+			opts.OAuth.SessionStore = sessionStore
+		}
+		oauthService = NewOAuthService(opts.OAuth)
+	}
+
 	return &AuthService{
 		middleware:   jwtMiddleware,
 		sessionStore: sessionStore,
+		oauthService: oauthService,
 	}, nil
 }
 
@@ -74,6 +86,10 @@ func (as *AuthService) RefreshHandler() gin.HandlerFunc {
 
 func (as *AuthService) GetSessionStore() sessions.Store {
 	return as.sessionStore
+}
+
+func (as *AuthService) GetOAuthService() OAuthService {
+	return as.oauthService
 }
 
 // parseSameSite helper function (moved from utils to keep it internal)

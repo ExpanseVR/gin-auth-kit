@@ -4,50 +4,50 @@
 
 ### 1.1 Dependencies Setup
 
-- [ ] Add `github.com/markbates/goth/v2` to go.mod
-- [ ] Add `github.com/markbates/goth/v2/gothic` to go.mod
-- [ ] Add `github.com/gorilla/sessions` to go.mod
-- [ ] Run `go mod tidy` to download dependencies
-- [ ] Verify all dependencies are compatible with existing code
+- [x] Add `github.com/markbates/goth/v2` to go.mod
+- [x] Add `github.com/markbates/goth/v2/gothic` to go.mod
+- [x] Add `github.com/gorilla/sessions` to go.mod
+- [x] Run `go mod tidy` to download dependencies
+- [x] Verify all dependencies are compatible with existing code
 
 ### 1.2 File Structure
 
-- [ ] Create new `oauth.go` file in project root
-- [ ] Add basic package declaration and imports to oauth.go
-- [ ] Create placeholder for OAuth structures and interfaces
+- [x] Create new `oauth.go` file in project root
+- [x] Add basic package declaration and imports to oauth.go
+- [x] Create placeholder for OAuth structures and interfaces
 
 ### 1.3 Core Structures
 
-- [ ] Define `OAuthProvider` struct in oauth.go
-- [ ] Define `OAuthConfig` struct in oauth.go
-- [ ] Add validation methods for OAuthProvider (check required fields)
-- [ ] Add validation methods for OAuthConfig (check required fields)
+- [x] Define `OAuthProvider` struct in oauth.go
+- [x] Define `OAuthConfig` struct in oauth.go
+- [x] Add validation methods for OAuthProvider (check required fields)
+- [x] Add validation methods for OAuthConfig (check required fields)
 
 ### 1.4 Interface Definition
 
-- [ ] Define `OAuthService` interface in oauth.go
-- [ ] Add method signatures for provider management
-- [ ] Add method signatures for OAuth flow handlers
-- [ ] Add method signature for user mapping
+- [x] Define `OAuthService` interface in oauth.go
+- [x] Add method signatures for provider management
+- [x] Add method signatures for OAuth flow handlers
+- [x] Add method signature for user mapping
 
 ### 1.5 Update Existing Files
 
-- [ ] Update `interfaces.go` to include OAuth interfaces
-- [ ] Update `AuthOptions` struct in auth.go to include OAuth configuration
-- [ ] Ensure backward compatibility with existing JWT-only configurations
+- [x] Update `interfaces.go` to include OAuth interfaces
+- [x] Update `AuthOptions` struct in auth.go to include OAuth configuration
+- [x] Ensure backward compatibility with existing JWT-only configurations
 
 ## Phase 2: Service Implementation
 
 ### 2.1 OAuth Service Structure
 
-- [ ] Create `oauthService` struct that implements `OAuthService` interface
-- [ ] Add fields for storing providers, session store, and configuration
-- [ ] Create constructor function for oauthService
+- [x] Create `oauthService` struct that implements `OAuthService` interface
+- [x] Add fields for storing providers, session store, and configuration
+- [x] Create constructor function for oauthService
 
 ### 2.2 Provider Management
 
-- [ ] Implement `RegisterProvider` method
-- [ ] Implement `GetProvider` method with error handling
+- [x] Implement `RegisterProvider` method
+- [x] Implement `GetProvider` method with error handling
 - [ ] Add provider validation logic
 - [ ] Create helper function to initialize Goth providers from OAuthProvider config
 
@@ -78,10 +78,10 @@
 
 ### 3.1 Auth Service Integration
 
-- [ ] Update main `Auth` struct to include OAuth service
-- [ ] Modify auth initialization to handle OAuth configuration
-- [ ] Ensure OAuth and JWT can coexist without conflicts
-- [ ] Add OAuth service to auth options validation
+- [x] Update main `Auth` struct to include OAuth service
+- [x] Modify auth initialization to handle OAuth configuration
+- [x] Ensure OAuth and JWT can coexist without conflicts
+- [x] Add OAuth service to auth options validation
 
 ### 3.2 Route Integration
 
