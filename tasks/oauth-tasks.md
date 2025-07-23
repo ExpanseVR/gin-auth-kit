@@ -117,12 +117,12 @@
 
 ### 4.2 OAuth Foundation Tests
 
-- [ ] Create test file for oauth.go
-- [ ] Test OAuthProvider validation (valid/invalid configurations)
-- [ ] Test Goth provider creation (Google, GitHub, Facebook)
-- [ ] Test OAuth service initialization
-- [ ] Test provider management methods (RegisterProvider, GetProvider)
-- [ ] Test error handling for missing/invalid OAuth config
+- [x] Create test file for oauth.go
+- [x] Test OAuthProvider validation (valid/invalid configurations)
+- [x] Test Goth provider creation (Google, GitHub, Facebook)
+- [x] Test OAuth service initialization
+- [x] Test provider management methods (RegisterProvider, GetProvider)
+- [x] Test error handling for missing/invalid OAuth config
 
 ### 4.3 Integration Tests
 

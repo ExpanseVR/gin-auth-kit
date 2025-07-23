@@ -81,6 +81,10 @@ type oauthService struct {
 
 // NewOAuthService creates a new OAuth service instance
 func NewOAuthService(config *OAuthConfig) OAuthService {
+	if config == nil {
+		return nil
+	}
+	
 	service := &oauthService{
 		providers:    make(map[string]goth.Provider),
 		sessionStore: config.SessionStore,
