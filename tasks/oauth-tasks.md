@@ -26,7 +26,7 @@
 - [x] Define `OAuthConfig` struct in oauth.go
 - [x] Add validation methods for OAuthProvider (check required fields)
 - [x] Add validation methods for OAuthConfig (check required fields)
-- [ ] Define `BFFAuthOptions` struct in interfaces.go
+- [x] Define `BFFAuthOptions` struct in interfaces.go
 - [ ] Add validation methods for BFFAuthOptions
 
 ### 1.4 Interface Definition
@@ -35,16 +35,16 @@
 - [x] Add method signatures for provider management
 - [x] Add method signatures for OAuth flow handlers
 - [x] Add method signature for user mapping
-- [ ] Define `SessionService` interface in interfaces.go
-- [ ] Define `SessionExchangeService` interface in interfaces.go
-- [ ] Define `BFFAuthMiddleware` interface in interfaces.go
+- [x] Define `SessionService` interface in interfaces.go
+- [x] Define `SessionExchangeService` interface in interfaces.go
+- [x] Define `BFFAuthMiddleware` interface in interfaces.go
 
 ### 1.5 Update Existing Files
 
 - [x] Update `interfaces.go` to include OAuth interfaces
 - [x] Update `AuthOptions` struct in auth.go to include OAuth configuration
 - [x] Ensure backward compatibility with existing JWT-only configurations
-- [ ] Update `interfaces.go` to include BFF interfaces
+- [x] Update `interfaces.go` to include BFF interfaces
 - [ ] Update `AuthService` struct to include BFF services
 
 ## Phase 2: Service Implementation
@@ -57,30 +57,30 @@
 
 ### 2.2 Session Service Implementation
 
-- [ ] Create `sessionService` struct that implements `SessionService` interface
-- [ ] Add fields for session store and configuration
-- [ ] Create constructor function for sessionService
-- [ ] Implement `CreateSession` method
-- [ ] Implement `GetSession` method
-- [ ] Implement `DeleteSession` method
-- [ ] Implement `ValidateSession` method
+- [x] Create `sessionService` struct that implements `SessionService` interface
+- [x] Add fields for session store and configuration
+- [x] Create constructor function for sessionService
+- [x] Implement `CreateSession` method
+- [x] Implement `GetSession` method
+- [x] Implement `DeleteSession` method
+- [x] Implement `ValidateSession` method
 
 ### 2.3 JWT Exchange Service Implementation
 
-- [ ] Create `jwtExchangeService` struct that implements `SessionExchangeService` interface
-- [ ] Add fields for JWT configuration and session service
-- [ ] Create constructor function for jwtExchangeService
-- [ ] Implement `ExchangeSessionForJWT` method
-- [ ] Implement `RefreshSessionJWT` method
+- [x] Create `jwtExchangeService` struct that implements `SessionExchangeService` interface
+- [x] Add fields for JWT configuration and session service
+- [x] Create constructor function for jwtExchangeService
+- [x] Implement `ExchangeSessionForJWT` method
+- [x] Implement `RefreshSessionJWT` method
 
 ### 2.4 BFF Middleware Implementation
 
-- [ ] Create `bffAuthMiddleware` struct that implements `BFFAuthMiddleware` interface
-- [ ] Add fields for session service and configuration
-- [ ] Create constructor function for bffAuthMiddleware
-- [ ] Implement `RequireSession` method
-- [ ] Implement `RequireValidSession` method
-- [ ] Implement `OptionalSession` method
+- [x] Create `bffAuthMiddleware` struct that implements `BFFAuthMiddleware` interface
+- [x] Add fields for session service and configuration
+- [x] Create constructor function for bffAuthMiddleware
+- [x] Implement `RequireSession` method
+- [x] Implement `RequireValidSession` method
+- [x] Implement `OptionalSession` method
 
 ### 2.5 Provider Management
 
@@ -114,11 +114,11 @@
 
 ### 2.9 Cookie Management
 
-- [ ] Create cookie configuration structure
-- [ ] Implement `SetSIDCookie` function
-- [ ] Implement `GetSIDCookie` function
-- [ ] Implement `ClearSIDCookie` function
-- [ ] Add secure cookie options (HttpOnly, Secure, SameSite)
+- [x] Create cookie configuration structure
+- [x] Implement `SetSIDCookie` function
+- [x] Implement `GetSIDCookie` function
+- [x] Implement `ClearSIDCookie` function
+- [x] Add secure cookie options (HttpOnly, Secure, SameSite)
 
 ## Phase 3: Integration
 
@@ -189,14 +189,14 @@
 
 ### 4.3 BFF Foundation Tests
 
-- [ ] Create test file for session.go
-- [ ] Test SessionService methods (CreateSession, GetSession, DeleteSession, ValidateSession)
-- [ ] Create test file for jwt_exchange.go
-- [ ] Test SessionExchangeService methods (ExchangeSessionForJWT, RefreshSessionJWT)
-- [ ] Create test file for bff_middleware.go
-- [ ] Test BFFAuthMiddleware methods (RequireSession, RequireValidSession, OptionalSession)
-- [ ] Create test file for cookie_utils.go
-- [ ] Test cookie management functions (SetSIDCookie, GetSIDCookie, ClearSIDCookie)
+- [x] Create test file for session.go
+- [x] Test SessionService methods (CreateSession, GetSession, DeleteSession, ValidateSession)
+- [x] Create test file for jwt_exchange.go
+- [x] Test SessionExchangeService methods (ExchangeSessionForJWT, RefreshSessionJWT)
+- [x] Create test file for bff_middleware.go
+- [x] Test BFFAuthMiddleware methods (RequireSession, RequireValidSession, OptionalSession)
+- [x] Create test file for cookie_utils.go
+- [x] Test cookie management functions (SetSIDCookie, GetSIDCookie, ClearSIDCookie)
 
 ### 4.4 Integration Tests
 
