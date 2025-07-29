@@ -55,6 +55,51 @@ type OAuthService interface {
 	MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error)
 }
 
+// SessionService defines the interface for session management
+type SessionService interface {
+	CreateSession(user UserInfo, expiry time.Duration) (string, error)
+	GetSession(sid string) (UserInfo, error)
+	DeleteSession(sid string) error
+	ValidateSession(sid string) (UserInfo, error)
+}
+
+// SessionExchangeService defines the interface for session-to-JWT exchange
+type SessionExchangeService interface {
+	ExchangeSessionForJWT(sid string) (string, error)
+	RefreshSessionJWT(sid string) (string, error)
+}
+
+// BFFAuthMiddleware defines the interface for BFF authentication middleware
+type BFFAuthMiddleware interface {
+	RequireSession() gin.HandlerFunc
+	RequireValidSession() gin.HandlerFunc
+	OptionalSession() gin.HandlerFunc
+}
+
+// BFFAuthOptions represents configuration for BFF authentication
+type BFFAuthOptions struct {
+	// Session configuration
+	SessionSecret string
+	SessionMaxAge int
+	SessionDomain string
+	SessionSecure bool
+	
+	// JWT configuration  
+	JWTSecret     string
+	JWTExpiry     time.Duration
+	
+	// Cookie configuration
+	SIDCookieName string
+	SIDCookiePath string
+	
+	// User callbacks
+	FindUserByEmail FindUserByEmailFunc
+	FindUserByID    FindUserByIDFunc
+	
+	// OAuth configuration (optional)
+	OAuth *OAuthConfig
+}
+
 type AuthOptions struct {
 	// JWT Configuration
 	JWTSecret           string

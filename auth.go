@@ -11,10 +11,10 @@ import (
 // AuthMiddleware defines the interface that all auth middleware must implement
 // This allows for different auth strategies (JWT, session, etc.)
 type AuthMiddleware interface {
-	MiddlewareFunc() gin.HandlerFunc // Function for protecting routes
-	LoginHandler() gin.HandlerFunc // Returns the Gin handler for user login
-	LogoutHandler() gin.HandlerFunc // Returns the Gin handler for user logout
-	RefreshHandler() gin.HandlerFunc // Returns the Gin handler for token refresh
+	MiddlewareFunc() gin.HandlerFunc
+	LoginHandler() gin.HandlerFunc
+	LogoutHandler() gin.HandlerFunc
+	RefreshHandler() gin.HandlerFunc
 }
 
 type AuthService struct {
