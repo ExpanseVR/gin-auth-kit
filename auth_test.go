@@ -231,25 +231,89 @@ func TestGinIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	opts := &AuthOptions{
-		JWTSecret:       "test-secret-key",
-		SessionSecret:   "session-secret",
-		FindUserByEmail: mockFindUserByEmail,
-		FindUserByID:    mockFindUserByID,
+		JWTSecret:          "test-secret-key",
+		JWTRealm:          "test-realm",
+		TokenExpireTime:    time.Hour,
+		RefreshExpireTime:  time.Hour * 24,
+		IdentityKey:        "user",
+		SessionSecret:      "session-secret",
+		SessionMaxAge:      3600,
+		SessionDomain:      "",
+		SessionSecure:      false,
+		SessionSameSite:    "Lax",
+		BcryptCost:         10,
+		FindUserByEmail:    mockFindUserByEmail,
+		FindUserByID:       mockFindUserByID,
 	}
 
 	authService, err := NewAuthService(opts)
 	require.NoError(t, err)
+	require.NotNil(t, authService)
 
-	// Test that middleware functions return valid Gin handlers
-	middleware := authService.MiddlewareFunc()
-	assert.NotNil(t, middleware)
+	// Test that middleware functions are available
+	assert.NotNil(t, authService.MiddlewareFunc())
+	assert.NotNil(t, authService.LoginHandler())
+	assert.NotNil(t, authService.LogoutHandler())
+	assert.NotNil(t, authService.RefreshHandler())
+}
 
-	loginHandler := authService.LoginHandler()
-	assert.NotNil(t, loginHandler)
+// TestBFFConfiguration tests that BFF configuration works
+func TestBFFConfiguration(t *testing.T) {
+	opts := &BFFAuthOptions{
+		SessionSecret: "test-session-secret",
+		SessionMaxAge: 86400,
+		JWTSecret:     "test-jwt-secret",
+		JWTExpiry:     10 * time.Minute,
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:   mockFindUserByID,
+	}
 
-	logoutHandler := authService.LogoutHandler()
-	assert.NotNil(t, logoutHandler)
+	authService, err := NewBFFAuthService(opts)
+	require.NoError(t, err)
+	require.NotNil(t, authService)
 
-	refreshHandler := authService.RefreshHandler()
-	assert.NotNil(t, refreshHandler)
+	// Test that BFF services are available
+	assert.NotNil(t, authService.GetSessionService())
+	assert.NotNil(t, authService.GetJWTExchangeService())
+	assert.NotNil(t, authService.GetBFFAuthMiddleware())
+
+	// Test that traditional middleware is nil for BFF-only config
+	assert.Nil(t, authService.MiddlewareFunc())
+
+	// Test that session store is available
+	sessionStore := authService.GetSessionStore()
+	assert.NotNil(t, sessionStore)
+	assert.IsType(t, &sessions.CookieStore{}, sessionStore)
+}
+
+// TestBFFAndJWTCoexistence tests that BFF and JWT can coexist in the same service
+func TestBFFAndJWTCoexistence(t *testing.T) {
+	opts := &AuthOptions{
+		JWTSecret:          "test-secret-key",
+		JWTRealm:          "test-realm",
+		TokenExpireTime:    time.Hour,
+		RefreshExpireTime:  time.Hour * 24,
+		IdentityKey:        "user",
+		SessionSecret:      "session-secret",
+		SessionMaxAge:      3600,
+		SessionDomain:      "",
+		SessionSecure:      false,
+		SessionSameSite:    "Lax",
+		BcryptCost:         10,
+		FindUserByEmail:    mockFindUserByEmail,
+		FindUserByID:       mockFindUserByID,
+	}
+
+	authService, err := NewAuthService(opts)
+	require.NoError(t, err)
+	require.NotNil(t, authService)
+
+	// Test that both traditional JWT middleware and BFF services are available
+	assert.NotNil(t, authService.MiddlewareFunc())
+	assert.NotNil(t, authService.GetSessionService())
+	assert.NotNil(t, authService.GetJWTExchangeService())
+	assert.NotNil(t, authService.GetBFFAuthMiddleware())
+
+	// Test that OAuth service is nil when not configured
+	assert.Nil(t, authService.GetOAuthService())
 } 

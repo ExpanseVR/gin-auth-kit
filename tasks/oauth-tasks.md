@@ -27,7 +27,7 @@
 - [x] Add validation methods for OAuthProvider (check required fields)
 - [x] Add validation methods for OAuthConfig (check required fields)
 - [x] Define `BFFAuthOptions` struct in interfaces.go
-- [ ] Add validation methods for BFFAuthOptions
+- [x] Add validation methods for BFFAuthOptions
 
 ### 1.4 Interface Definition
 
@@ -45,7 +45,7 @@
 - [x] Update `AuthOptions` struct in auth.go to include OAuth configuration
 - [x] Ensure backward compatibility with existing JWT-only configurations
 - [x] Update `interfaces.go` to include BFF interfaces
-- [ ] Update `AuthService` struct to include BFF services
+- [x] Update `AuthService` struct to include BFF services
 
 ## Phase 2: Service Implementation
 
@@ -128,10 +128,10 @@
 - [x] Modify auth initialization to handle OAuth configuration
 - [x] Ensure OAuth and JWT can coexist without conflicts
 - [x] Add OAuth service to auth options validation
-- [ ] Update main `Auth` struct to include BFF services
-- [ ] Modify auth initialization to handle BFF configuration
-- [ ] Ensure BFF, OAuth, and JWT can coexist without conflicts
-- [ ] Add BFF services to auth options validation
+- [x] Update main `Auth` struct to include BFF services
+- [x] Modify auth initialization to handle BFF configuration
+- [x] Ensure BFF, OAuth, and JWT can coexist without conflicts
+- [x] Add BFF services to auth options validation
 
 ### 3.2 Route Integration
 
@@ -175,8 +175,8 @@
 - [x] Test backward compatibility (JWT-only still works)
 - [x] Test session store integration between JWT and OAuth
 - [x] Test error handling for invalid JWT configurations
-- [ ] Test AuthService initialization with BFF config
-- [ ] Test BFF and JWT coexistence
+- [x] Test AuthService initialization with BFF config
+- [x] Test BFF and JWT coexistence
 
 ### 4.2 OAuth Foundation Tests
 

@@ -34,22 +34,18 @@ func (m *mockSessionStore) Save(r *http.Request, w http.ResponseWriter, s *sessi
 	return nil
 }
 
-// TestSessionService tests the session service functionality
+// TestSessionService tests the SessionService functionality
 func TestSessionService(t *testing.T) {
 	mockStore := newMockSessionStore()
 	sessionService := NewSessionService(mockStore)
 
-	user := UserInfo{
-		ID:    1,
-		Email: "test@example.com",
-		Role:  "customer",
-	}
-
 	t.Run("CreateSession", func(t *testing.T) {
-		sid, err := sessionService.CreateSession(user, 30*time.Minute)
+		user := UserInfo{ID: 1, Email: "test@example.com", Role: "user"}
+		sid, err := sessionService.CreateSession(user, 10*time.Minute)
+		
 		assert.NoError(t, err)
 		assert.NotEmpty(t, sid)
-		assert.Contains(t, sid, "sid_")
+		assert.True(t, len(sid) > 10) // Should be a secure random string
 	})
 
 	t.Run("GetSession_EmptySID", func(t *testing.T) {
@@ -59,7 +55,7 @@ func TestSessionService(t *testing.T) {
 	})
 
 	t.Run("GetSession_NotFound", func(t *testing.T) {
-		_, err := sessionService.GetSession("sid_nonexistent")
+		_, err := sessionService.GetSession("nonexistent_sid")
 		assert.Error(t, err)
 		assert.Equal(t, ErrSessionNotFound, err)
 	})
@@ -71,7 +67,7 @@ func TestSessionService(t *testing.T) {
 	})
 
 	t.Run("DeleteSession_Success", func(t *testing.T) {
-		err := sessionService.DeleteSession("sid_test")
+		err := sessionService.DeleteSession("test_sid")
 		assert.NoError(t, err)
 	})
 
@@ -82,7 +78,7 @@ func TestSessionService(t *testing.T) {
 	})
 }
 
-// TestJWTExchangeService tests the JWT exchange service functionality
+// TestJWTExchangeService tests the JWTExchangeService functionality
 func TestJWTExchangeService(t *testing.T) {
 	mockStore := newMockSessionStore()
 	sessionService := NewSessionService(mockStore)
@@ -95,7 +91,7 @@ func TestJWTExchangeService(t *testing.T) {
 	})
 
 	t.Run("ExchangeSessionForJWT_InvalidSession", func(t *testing.T) {
-		_, err := jwtExchangeService.ExchangeSessionForJWT("sid_invalid")
+		_, err := jwtExchangeService.ExchangeSessionForJWT("invalid_sid")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "session validation failed")
 	})
@@ -193,8 +189,14 @@ func TestCookieUtils(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
-		SetSIDCookie(c, "test_sid", CookieConfig{Name: "sid"})
-		// Should not panic or error
+		config := CookieConfig{Name: "test_sid", Path: "/"}
+		SetSIDCookie(c, "test_sid_value", config)
+		
+		// Check if cookie was set in response
+		cookies := w.Result().Cookies()
+		assert.Len(t, cookies, 1)
+		assert.Equal(t, "test_sid", cookies[0].Name)
+		assert.Equal(t, "test_sid_value", cookies[0].Value)
 	})
 
 	t.Run("GetSIDCookie_NoCookie", func(t *testing.T) {
@@ -231,8 +233,14 @@ func TestCookieUtils(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
-		ClearSIDCookie(c, CookieConfig{Name: "sid"})
-		// Should not panic or error
+		config := CookieConfig{Name: "test_sid", Path: "/"}
+		ClearSIDCookie(c, config)
+		
+		// Check if cookie was cleared (max age = -1)
+		cookies := w.Result().Cookies()
+		assert.Len(t, cookies, 1)
+		assert.Equal(t, "test_sid", cookies[0].Name)
+		assert.Equal(t, -1, cookies[0].MaxAge)
 	})
 
 	t.Run("SetSecureCookie", func(t *testing.T) {
@@ -241,7 +249,13 @@ func TestCookieUtils(t *testing.T) {
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
 		SetSecureCookie(c, "secure_cookie", "value", 3600)
-		// Should not panic or error
+		
+		cookies := w.Result().Cookies()
+		assert.Len(t, cookies, 1)
+		assert.Equal(t, "secure_cookie", cookies[0].Name)
+		assert.Equal(t, "value", cookies[0].Value)
+		assert.True(t, cookies[0].Secure)
+		assert.True(t, cookies[0].HttpOnly)
 	})
 
 	t.Run("GetCookie_NoCookie", func(t *testing.T) {
@@ -249,7 +263,7 @@ func TestCookieUtils(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
-		value := GetCookie(c, "test_cookie")
+		value := GetCookie(c, "nonexistent")
 		assert.Empty(t, value)
 	})
 
@@ -269,7 +283,11 @@ func TestCookieUtils(t *testing.T) {
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
 		ClearCookie(c, "test_cookie")
-		// Should not panic or error
+		
+		cookies := w.Result().Cookies()
+		assert.Len(t, cookies, 1)
+		assert.Equal(t, "test_cookie", cookies[0].Name)
+		assert.Equal(t, -1, cookies[0].MaxAge)
 	})
 
 	t.Run("ValidateCookieConfig_Valid", func(t *testing.T) {
@@ -293,7 +311,7 @@ func TestCookieUtils(t *testing.T) {
 	})
 }
 
-// TestBFFServiceConstructors tests the constructor functions
+// TestBFFServiceConstructors tests the BFF service constructors
 func TestBFFServiceConstructors(t *testing.T) {
 	mockStore := newMockSessionStore()
 
@@ -313,5 +331,159 @@ func TestBFFServiceConstructors(t *testing.T) {
 		jwtExchangeService := NewJWTExchangeService("test-secret", sessionService, 10*time.Minute)
 		bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, "sid")
 		assert.NotNil(t, bffMiddleware)
+	})
+}
+
+// TestBFFAuthOptionsValidation tests the BFFAuthOptions validation
+func TestBFFAuthOptionsValidation(t *testing.T) {
+	t.Run("Valid_BFFAuthOptions", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: 86400,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     10 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Nil_BFFAuthOptions", func(t *testing.T) {
+		var opts *BFFAuthOptions
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be nil")
+	})
+
+	t.Run("Missing_SessionSecret", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionMaxAge: 86400,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     10 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "SessionSecret is required")
+	})
+
+	t.Run("Invalid_SessionMaxAge", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: -1,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     10 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "SessionMaxAge must be positive")
+	})
+
+	t.Run("Missing_JWTSecret", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: 86400,
+			JWTExpiry:     10 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "JWTSecret is required")
+	})
+
+	t.Run("Invalid_JWTExpiry", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: 86400,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     -1 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "JWTExpiry must be positive")
+	})
+
+	t.Run("Missing_FindUserByEmail", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: 86400,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     10 * time.Minute,
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "FindUserByEmail callback is required")
+	})
+
+	t.Run("Missing_FindUserByID", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: 86400,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     10 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "FindUserByID callback is required")
+	})
+
+	t.Run("Default_Cookie_Values", func(t *testing.T) {
+		opts := &BFFAuthOptions{
+			SessionSecret: "test-secret",
+			SessionMaxAge: 86400,
+			JWTSecret:     "jwt-secret",
+			JWTExpiry:     10 * time.Minute,
+			FindUserByEmail: func(email string) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+			FindUserByID: func(id uint) (UserInfo, error) {
+				return UserInfo{}, nil
+			},
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.NoError(t, err)
+		assert.Equal(t, "sid", opts.SIDCookieName)
+		assert.Equal(t, "/", opts.SIDCookiePath)
 	})
 } 
