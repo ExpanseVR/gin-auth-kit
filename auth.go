@@ -52,7 +52,7 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 
 	var jwtService *JWTService
 	if opts.JWTSecret != "" {
-		jwtMiddleware := NewJWTMiddleware(&JWTOptions{
+		jwtMiddleware, err := NewJWTMiddleware(&JWTOptions{
 			Realm:             opts.JWTRealm,
 			Key:               []byte(opts.JWTSecret),
 			Timeout:           opts.TokenExpireTime,
@@ -64,6 +64,9 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 			SessionDomain:     opts.SessionDomain,
 			SessionSameSite:   opts.SessionSameSite,
 		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWT service: %w", err)
+		}
 
 		jwtService = &JWTService{
 			Middleware: jwtMiddleware,

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"time"
 
 	jwt "github.com/appleboy/gin-jwt/v2"
@@ -28,7 +29,7 @@ type JWTMiddleware struct {
 
 var _ AuthMiddleware = (*JWTMiddleware)(nil)
 
-func NewJWTMiddleware(opts *JWTOptions) *JWTMiddleware {
+func NewJWTMiddleware(opts *JWTOptions) (*JWTMiddleware, error) {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:           opts.Realm,
 		Key:             opts.Key,
@@ -59,12 +60,12 @@ func NewJWTMiddleware(opts *JWTOptions) *JWTMiddleware {
 	})
 
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to create JWT middleware: %w", err)
 	}
 
 	return &JWTMiddleware{
 		GinJWTMiddleware: authMiddleware,
-	}
+	}, nil
 }
 
 func (j *JWTMiddleware) MiddlewareFunc() gin.HandlerFunc {
