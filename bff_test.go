@@ -9,39 +9,12 @@ import (
 
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"
 )
 
-// Test-specific errors (since we moved the real ones)
 var (
 	ErrSessionNotFound = errors.New("session not found")
 )
-
-// Mock session store for testing
-type mockSessionStore struct {
-	sessions map[string]string // Just store SID -> data mapping
-}
-
-func newMockSessionStore() *mockSessionStore {
-	return &mockSessionStore{
-		sessions: make(map[string]string),
-	}
-}
-
-func (m *mockSessionStore) Get(r *http.Request, name string) (*sessions.Session, error) {
-	return sessions.NewSession(m, name), nil
-}
-
-func (m *mockSessionStore) New(r *http.Request, name string) (*sessions.Session, error) {
-	return sessions.NewSession(m, name), nil
-}
-
-func (m *mockSessionStore) Save(r *http.Request, w http.ResponseWriter, s *sessions.Session) error {
-	return nil
-}
-
-// mockSessionServiceImpl implements SessionService for testing
 type mockSessionServiceImpl struct{}
 
 func (m *mockSessionServiceImpl) CreateSession(user UserInfo, expiry time.Duration) (string, error) {
@@ -69,22 +42,17 @@ func (m *mockSessionServiceImpl) ValidateSession(sid string) (UserInfo, error) {
 	return UserInfo{}, ErrSessionNotFound
 }
 
-// TestSessionService tests the SessionService functionality
 func TestSessionService(t *testing.T) {
-	// SessionService is now an interface that users must implement
-	// These tests are no longer relevant since we removed the placeholder implementation
 	t.Skip("SessionService is now an interface - users must provide their own implementation")
 }
-
-// TestGenerateSecureSID tests the public GenerateSecureSID utility function
 func TestGenerateSecureSID(t *testing.T) {
 	t.Run("GeneratesValidSID", func(t *testing.T) {
 		sid, err := utils.GenerateSecureSID()
 		
 		assert.NoError(t, err)
 		assert.NotEmpty(t, sid)
-		assert.True(t, len(sid) > 60) // Should be "sid_" + 64 hex chars = 68 total
-		assert.Contains(t, sid, "sid_") // Should have the prefix
+		assert.True(t, len(sid) > 60)
+		assert.Contains(t, sid, "sid_")
 	})
 
 	t.Run("GeneratesUniqueSIDs", func(t *testing.T) {
@@ -93,21 +61,18 @@ func TestGenerateSecureSID(t *testing.T) {
 		
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
-		assert.NotEqual(t, sid1, sid2) // Should generate unique IDs
+		assert.NotEqual(t, sid1, sid2)
 	})
 
 	t.Run("ConsistentFormat", func(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			sid, err := utils.GenerateSecureSID()
 			assert.NoError(t, err)
-			assert.Regexp(t, `^sid_[a-f0-9]{64}$`, sid) // Should match expected format
+			assert.Regexp(t, `^sid_[a-f0-9]{64}$`, sid)
 		}
 	})
 }
 
-
-
-// TestJWTExchangeService tests the JWT exchange service functionality
 func TestJWTExchangeService(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
 	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
@@ -131,7 +96,7 @@ func TestJWTExchangeService(t *testing.T) {
 	})
 }
 
-// TestBFFAuthMiddleware tests the BFF auth middleware functionality
+
 func TestBFFAuthMiddleware(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
 	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
@@ -171,7 +136,6 @@ func TestBFFAuthMiddleware(t *testing.T) {
 		handler := bffMiddleware.OptionalSession()
 		handler(c)
 
-		// Should continue without error
 		_, exists := c.Get("user")
 		assert.False(t, exists)
 	})
@@ -186,13 +150,12 @@ func TestBFFAuthMiddleware(t *testing.T) {
 		handler := bffMiddleware.OptionalSession()
 		handler(c)
 
-		// Should continue without error
 		_, exists := c.Get("user")
 		assert.False(t, exists)
 	})
 }
 
-// TestCookieUtils tests the cookie utility functions
+
 func TestCookieUtils(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -212,7 +175,6 @@ func TestCookieUtils(t *testing.T) {
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
 		SetSIDCookie(c, "", CookieConfig{})
-		// Should not panic or error
 	})
 
 	t.Run("SetSIDCookie_ValidSID", func(t *testing.T) {
@@ -222,8 +184,6 @@ func TestCookieUtils(t *testing.T) {
 
 		config := CookieConfig{Name: "test_sid", Path: "/"}
 		SetSIDCookie(c, "test_sid_value", config)
-		
-		// Check if cookie was set in response
 		cookies := w.Result().Cookies()
 		assert.Len(t, cookies, 1)
 		assert.Equal(t, "test_sid", cookies[0].Name)
@@ -265,8 +225,6 @@ func TestCookieUtils(t *testing.T) {
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
 		ClearSIDCookie(c, "test_sid")
-		
-		// Check if cookie was cleared (max age = -1)
 		cookies := w.Result().Cookies()
 		assert.Len(t, cookies, 1)
 		assert.Equal(t, "test_sid", cookies[0].Name)
@@ -342,7 +300,7 @@ func TestCookieUtils(t *testing.T) {
 	})
 }
 
-// TestBFFServiceConstructors tests the BFF service constructors
+
 func TestBFFServiceConstructors(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
 
@@ -362,7 +320,6 @@ func TestBFFServiceConstructors(t *testing.T) {
 	})
 }
 
-// TestBFFAuthOptionsValidation tests the BFFAuthOptions validation
 func TestBFFAuthOptionsValidation(t *testing.T) {
 	t.Run("Valid_BFFAuthOptions", func(t *testing.T) {
 		opts := &BFFAuthOptions{
