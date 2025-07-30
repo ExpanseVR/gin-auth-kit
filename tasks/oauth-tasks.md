@@ -39,6 +39,8 @@
 - [x] Define `SessionExchangeService` interface in interfaces.go
 - [x] Define `BFFAuthMiddleware` interface in interfaces.go
 
+**Note**: The `OAuthService`, `SessionExchangeService`, and `BFFAuthMiddleware` interfaces were later removed in favor of concrete structs (`OAuthService`, `JWTExchangeService`, `BFFAuthMiddleware`) for cleaner API design, following Go best practices of not designing with interfaces when users don't implement them.
+
 ### 1.5 Update Existing Files
 
 - [x] Update `interfaces.go` to include OAuth interfaces

@@ -107,37 +107,35 @@ func TestGenerateSecureSID(t *testing.T) {
 
 
 
-// TestJWTExchangeService tests the JWTExchangeService functionality
+// TestJWTExchangeService tests the JWT exchange service functionality
 func TestJWTExchangeService(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
-	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
+	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 
 	t.Run("ExchangeSessionForJWT_EmptySID", func(t *testing.T) {
 		_, err := jwtExchangeService.ExchangeSessionForJWT("")
 		assert.Error(t, err)
-		assert.Equal(t, ErrInvalidSession, err)
+		assert.Contains(t, err.Error(), "invalid session ID")
 	})
 
 	t.Run("ExchangeSessionForJWT_InvalidSession", func(t *testing.T) {
-		_, err := jwtExchangeService.ExchangeSessionForJWT("invalid_sid")
+		_, err := jwtExchangeService.ExchangeSessionForJWT("invalid-sid")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "session validation failed")
+		assert.Contains(t, err.Error(), "invalid session")
 	})
 
 	t.Run("RefreshSessionJWT_EmptySID", func(t *testing.T) {
 		_, err := jwtExchangeService.RefreshSessionJWT("")
 		assert.Error(t, err)
-		assert.Equal(t, ErrInvalidSession, err)
+		assert.Contains(t, err.Error(), "invalid session ID")
 	})
 }
 
 // TestBFFAuthMiddleware tests the BFF auth middleware functionality
 func TestBFFAuthMiddleware(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
-	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
+	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 	bffMiddleware := NewBFFAuthMiddleware(mockSessionService, jwtExchangeService, "sid")
-
-	gin.SetMode(gin.TestMode)
 
 	t.Run("RequireSession_NoCookie", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -154,8 +152,9 @@ func TestBFFAuthMiddleware(t *testing.T) {
 	t.Run("RequireSession_InvalidSession", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-		c.Request.AddCookie(&http.Cookie{Name: "sid", Value: "invalid_sid"})
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.AddCookie(&http.Cookie{Name: "sid", Value: "invalid-sid"})
+		c.Request = req
 
 		handler := bffMiddleware.RequireSession()
 		handler(c)
@@ -172,19 +171,24 @@ func TestBFFAuthMiddleware(t *testing.T) {
 		handler := bffMiddleware.OptionalSession()
 		handler(c)
 
-		assert.Equal(t, http.StatusOK, w.Code) // Should continue without error
+		// Should continue without error
+		_, exists := c.Get("user")
+		assert.False(t, exists)
 	})
 
 	t.Run("OptionalSession_InvalidSession", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-		c.Request.AddCookie(&http.Cookie{Name: "sid", Value: "invalid_sid"})
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.AddCookie(&http.Cookie{Name: "sid", Value: "invalid-sid"})
+		c.Request = req
 
 		handler := bffMiddleware.OptionalSession()
 		handler(c)
 
-		assert.Equal(t, http.StatusOK, w.Code) // Should continue without error
+		// Should continue without error
+		_, exists := c.Get("user")
+		assert.False(t, exists)
 	})
 }
 
@@ -347,12 +351,12 @@ func TestBFFServiceConstructors(t *testing.T) {
 	})
 
 	t.Run("NewJWTExchangeService", func(t *testing.T) {
-		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
+		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 		assert.NotNil(t, jwtExchangeService)
 	})
 
 	t.Run("NewBFFAuthMiddleware", func(t *testing.T) {
-		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
+		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 		bffMiddleware := NewBFFAuthMiddleware(mockSessionService, jwtExchangeService, "sid")
 		assert.NotNil(t, bffMiddleware)
 	})

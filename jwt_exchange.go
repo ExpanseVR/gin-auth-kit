@@ -14,18 +14,19 @@ var (
 	ErrJWTValidationFailed = errors.New("failed to validate JWT")
 	ErrInvalidJWTSecret    = errors.New("invalid JWT secret")
 	ErrInvalidSession      = errors.New("invalid session")
+	ErrInvalidSID          = errors.New("invalid session ID")
 )
 
-// jwtExchangeService implements the SessionExchangeService interface
-type jwtExchangeService struct {
-	jwtSecret     string
+// JWTExchangeService handles session-to-JWT exchange
+type JWTExchangeService struct {
+	jwtSecret      string
 	sessionService SessionService
-	jwtExpiry     time.Duration
+	jwtExpiry      time.Duration
 }
 
 // NewJWTExchangeService creates a new JWT exchange service instance
-func NewJWTExchangeService(jwtSecret string, sessionService SessionService, jwtExpiry time.Duration) SessionExchangeService {
-	return &jwtExchangeService{
+func NewJWTExchangeService(jwtSecret string, sessionService SessionService, jwtExpiry time.Duration) *JWTExchangeService {
+	return &JWTExchangeService{
 		jwtSecret:      jwtSecret,
 		sessionService: sessionService,
 		jwtExpiry:      jwtExpiry,
@@ -33,35 +34,49 @@ func NewJWTExchangeService(jwtSecret string, sessionService SessionService, jwtE
 }
 
 // ExchangeSessionForJWT exchanges a session ID for a JWT token
-func (j *jwtExchangeService) ExchangeSessionForJWT(sid string) (string, error) {
+func (j *JWTExchangeService) ExchangeSessionForJWT(sid string) (string, error) {
 	if sid == "" {
-		return "", ErrInvalidSession
+		return "", ErrInvalidSID
 	}
 
-	// Validate the session and get user info
+	// Get user info from session
 	userInfo, err := j.sessionService.ValidateSession(sid)
 	if err != nil {
-		return "", fmt.Errorf("session validation failed: %w", err)
+		return "", ErrInvalidSession
 	}
 
 	// Generate JWT token
 	token, err := j.generateJWT(userInfo)
 	if err != nil {
-		return "", fmt.Errorf("JWT generation failed: %w", err)
+		return "", fmt.Errorf("failed to generate JWT: %w", err)
 	}
 
 	return token, nil
 }
 
 // RefreshSessionJWT refreshes a JWT token using the session ID
-func (j *jwtExchangeService) RefreshSessionJWT(sid string) (string, error) {
-	// This is essentially the same as ExchangeSessionForJWT
-	// but could be extended to handle refresh token logic in the future
-	return j.ExchangeSessionForJWT(sid)
+func (j *JWTExchangeService) RefreshSessionJWT(sid string) (string, error) {
+	if sid == "" {
+		return "", ErrInvalidSID
+	}
+
+	// Validate session is still active
+	userInfo, err := j.sessionService.ValidateSession(sid)
+	if err != nil {
+		return "", ErrInvalidSession
+	}
+
+	// Generate new JWT token
+	token, err := j.generateJWT(userInfo)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate JWT: %w", err)
+	}
+
+	return token, nil
 }
 
 // generateJWT creates a new JWT token for the given user
-func (j *jwtExchangeService) generateJWT(user UserInfo) (string, error) {
+func (j *JWTExchangeService) generateJWT(user UserInfo) (string, error) {
 	if j.jwtSecret == "" {
 		return "", ErrInvalidJWTSecret
 	}
@@ -91,7 +106,7 @@ func (j *jwtExchangeService) generateJWT(user UserInfo) (string, error) {
 }
 
 // validateJWT validates and parses a JWT token
-func (j *jwtExchangeService) validateJWT(tokenString string) (UserInfo, error) {
+func (j *JWTExchangeService) validateJWT(tokenString string) (UserInfo, error) {
 	if j.jwtSecret == "" {
 		return UserInfo{}, ErrInvalidJWTSecret
 	}

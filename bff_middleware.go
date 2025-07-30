@@ -6,16 +6,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// bffAuthMiddleware implements the BFFAuthMiddleware interface
-type bffAuthMiddleware struct {
-	sessionService SessionService
-	jwtExchangeService SessionExchangeService
-	sidCookieName string
+// BFFAuthMiddleware provides BFF authentication middleware
+type BFFAuthMiddleware struct {
+	sessionService     SessionService
+	jwtExchangeService *JWTExchangeService
+	sidCookieName      string
 }
 
 // NewBFFAuthMiddleware creates a new BFF auth middleware instance
-func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService SessionExchangeService, sidCookieName string) BFFAuthMiddleware {
-	return &bffAuthMiddleware{
+func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService *JWTExchangeService, sidCookieName string) *BFFAuthMiddleware {
+	return &BFFAuthMiddleware{
 		sessionService:     sessionService,
 		jwtExchangeService: jwtExchangeService,
 		sidCookieName:      sidCookieName,
@@ -23,15 +23,11 @@ func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService Sess
 }
 
 // RequireSession middleware that requires a valid session
-func (b *bffAuthMiddleware) RequireSession() gin.HandlerFunc {
+func (b *BFFAuthMiddleware) RequireSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get SID from cookie
-		sid := getSIDFromCookie(c, b.sidCookieName)
+		sid := b.getSIDFromCookie(c)
 		if sid == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Session required",
-				"code":  "SESSION_REQUIRED",
-			})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
 			c.Abort()
 			return
 		}
@@ -39,58 +35,45 @@ func (b *bffAuthMiddleware) RequireSession() gin.HandlerFunc {
 		// Validate session
 		userInfo, err := b.sessionService.ValidateSession(sid)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid session",
-				"code":  "INVALID_SESSION",
-			})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session"})
 			c.Abort()
 			return
 		}
 
-		// Set user info in context
+		// Store user info in context
 		c.Set("user", userInfo)
 		c.Set("sid", sid)
 		c.Next()
 	}
 }
 
-// RequireValidSession middleware that requires a valid session and exchanges it for JWT
-func (b *bffAuthMiddleware) RequireValidSession() gin.HandlerFunc {
+// RequireValidSession middleware that requires a valid session and provides JWT
+func (b *BFFAuthMiddleware) RequireValidSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get SID from cookie
-		sid := getSIDFromCookie(c, b.sidCookieName)
+		sid := b.getSIDFromCookie(c)
 		if sid == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Session required",
-				"code":  "SESSION_REQUIRED",
-			})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
 			c.Abort()
 			return
 		}
 
-		// Exchange session for JWT
-		jwt, err := b.jwtExchangeService.ExchangeSessionForJWT(sid)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Session exchange failed",
-				"code":  "SESSION_EXCHANGE_FAILED",
-			})
-			c.Abort()
-			return
-		}
-
-		// Validate session to get user info
+		// Validate session
 		userInfo, err := b.sessionService.ValidateSession(sid)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid session",
-				"code":  "INVALID_SESSION",
-			})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session"})
 			c.Abort()
 			return
 		}
 
-		// Set user info and JWT in context
+		// Generate JWT for API calls
+		jwt, err := b.jwtExchangeService.ExchangeSessionForJWT(sid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate JWT"})
+			c.Abort()
+			return
+		}
+
+		// Store user info and JWT in context
 		c.Set("user", userInfo)
 		c.Set("sid", sid)
 		c.Set("jwt", jwt)
@@ -98,13 +81,12 @@ func (b *bffAuthMiddleware) RequireValidSession() gin.HandlerFunc {
 	}
 }
 
-// OptionalSession middleware that optionally validates a session if present
-func (b *bffAuthMiddleware) OptionalSession() gin.HandlerFunc {
+// OptionalSession middleware that optionally validates session
+func (b *BFFAuthMiddleware) OptionalSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get SID from cookie
-		sid := getSIDFromCookie(c, b.sidCookieName)
+		sid := b.getSIDFromCookie(c)
 		if sid == "" {
-			// No session present, continue without authentication
+			// No session, continue without user info
 			c.Next()
 			return
 		}
@@ -112,12 +94,12 @@ func (b *bffAuthMiddleware) OptionalSession() gin.HandlerFunc {
 		// Try to validate session
 		userInfo, err := b.sessionService.ValidateSession(sid)
 		if err != nil {
-			// Invalid session, continue without authentication
+			// Invalid session, continue without user info
 			c.Next()
 			return
 		}
 
-		// Valid session found, set user info in context
+		// Store user info in context
 		c.Set("user", userInfo)
 		c.Set("sid", sid)
 		c.Next()
@@ -125,12 +107,12 @@ func (b *bffAuthMiddleware) OptionalSession() gin.HandlerFunc {
 }
 
 // getSIDFromCookie extracts the SID from the request cookies
-func getSIDFromCookie(c *gin.Context, cookieName string) string {
-	if cookieName == "" {
-		cookieName = "sid" // Default cookie name
+func (b *BFFAuthMiddleware) getSIDFromCookie(c *gin.Context) string {
+	if b.sidCookieName == "" {
+		b.sidCookieName = "sid" // Default cookie name
 	}
 
-	cookie, err := c.Cookie(cookieName)
+	cookie, err := c.Cookie(b.sidCookieName)
 	if err != nil {
 		return ""
 	}

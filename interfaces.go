@@ -61,19 +61,6 @@ type SessionService interface {
 	ValidateSession(sid string) (UserInfo, error)
 }
 
-// SessionExchangeService defines the interface for session-to-JWT exchange
-type SessionExchangeService interface {
-	ExchangeSessionForJWT(sid string) (string, error)
-	RefreshSessionJWT(sid string) (string, error)
-}
-
-// BFFAuthMiddleware defines the interface for BFF authentication middleware
-type BFFAuthMiddleware interface {
-	RequireSession() gin.HandlerFunc
-	RequireValidSession() gin.HandlerFunc
-	OptionalSession() gin.HandlerFunc
-}
-
 type BFFAuthOptions struct {
 	// Session configuration
 	SessionSecret string

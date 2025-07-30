@@ -12,11 +12,11 @@ type JWTService struct {
 	Middleware AuthMiddleware
 }
 
-// BFFService groups BFF-related functionality  
+// BFFService groups all BFF-related services
 type BFFService struct {
 	Sessions   SessionService
-	Exchange   SessionExchangeService
-	Middleware BFFAuthMiddleware
+	Exchange   *JWTExchangeService
+	Middleware *BFFAuthMiddleware
 }
 
 // AuthService is the main service that provides authentication functionality
