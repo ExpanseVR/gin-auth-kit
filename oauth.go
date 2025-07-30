@@ -1,14 +1,12 @@
 package auth
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
@@ -75,56 +73,6 @@ func createGothProvider(name string, provider OAuthProvider) (goth.Provider, err
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, name)
 	}
-}
-
-// Session management helper functions
-
-// createSessionStore creates a new session store for OAuth operations
-func createSessionStore(secret string) sessions.Store {
-	store := sessions.NewCookieStore([]byte(secret))
-	store.Options = &sessions.Options{
-		MaxAge:   86400 * 30, // 30 days
-		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
-		SameSite: http.SameSiteLaxMode,
-	}
-	return store
-}
-
-// generateSessionKey generates a secure session key for OAuth state
-func generateSessionKey() string {
-	// Generate a random 32-byte key
-	bytes := make([]byte, 32)
-	_, err := rand.Read(bytes)
-	if err != nil {
-		// Fallback to timestamp-based key if crypto/rand fails
-		return fmt.Sprintf("oauth_%d", time.Now().UnixNano())
-	}
-	return fmt.Sprintf("oauth_%x", bytes)
-}
-
-// cleanupSession removes OAuth-related session data
-func cleanupSession(session *sessions.Session) {
-	delete(session.Values, "oauth_state")
-	delete(session.Values, "provider")
-}
-
-// validateSession validates that a session contains required OAuth data
-func validateSession(session *sessions.Session) error {
-	if session == nil {
-		return errors.New("session is nil")
-	}
-	
-	// Check if session has required OAuth data
-	if _, ok := session.Values["user_id"]; !ok {
-		return errors.New("session missing user_id")
-	}
-	
-	if _, ok := session.Values["email"]; !ok {
-		return errors.New("session missing email")
-	}
-	
-	return nil
 }
 
 // OAuthService provides OAuth authentication functionality
