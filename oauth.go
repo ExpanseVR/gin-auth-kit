@@ -127,48 +127,47 @@ func validateSession(session *sessions.Session) error {
 	return nil
 }
 
-// oauthService implements the OAuthService interface
-type oauthService struct {
-	providers    map[string]goth.Provider
+// OAuthService provides OAuth authentication functionality
+type OAuthService struct {
+	Providers    map[string]goth.Provider
 	sessionStore sessions.Store
 	config       *OAuthConfig
 }
 
 // NewOAuthService creates a new OAuth service instance
-func NewOAuthService(config *OAuthConfig) OAuthService {
+func NewOAuthService(config *OAuthConfig) *OAuthService {
 	if config == nil {
 		return nil
 	}
 	
-	service := &oauthService{
-		providers:    make(map[string]goth.Provider),
+	service := &OAuthService{
+		Providers:    make(map[string]goth.Provider),
 		sessionStore: config.SessionStore,
 		config:       config,
 	}
 	
 	// Initialize providers from configuration
 	for name, providerConfig := range config.Providers {
-		gothProvider, err := createGothProvider(name, providerConfig)
+		provider, err := createGothProvider(name, providerConfig)
 		if err != nil {
 			// Log error but continue with other providers
-			// TODO: Add proper logging here
 			continue
 		}
-		service.RegisterProvider(name, gothProvider)
+		service.Providers[name] = provider
 	}
 	
 	return service
 }
 
 // RegisterProvider registers a new OAuth provider
-func (o *oauthService) RegisterProvider(name string, provider goth.Provider) {
-	o.providers[name] = provider
+func (o *OAuthService) RegisterProvider(name string, provider goth.Provider) {
+	o.Providers[name] = provider
 	goth.UseProviders(provider)
 }
 
 // GetProvider retrieves a registered OAuth provider
-func (o *oauthService) GetProvider(name string) (goth.Provider, error) {
-	provider, exists := o.providers[name]
+func (o *OAuthService) GetProvider(name string) (goth.Provider, error) {
+	provider, exists := o.Providers[name]
 	if !exists {
 		return nil, ErrProviderNotFound
 	}
@@ -176,107 +175,72 @@ func (o *oauthService) GetProvider(name string) (goth.Provider, error) {
 }
 
 // BeginAuthHandler handles the beginning of OAuth authentication
-func (o *oauthService) BeginAuthHandler() gin.HandlerFunc {
+func (o *OAuthService) BeginAuthHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get provider name from URL parameter
 		providerName := c.Param("provider")
 		if providerName == "" {
-			c.JSON(400, gin.H{"error": "Provider name is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Provider not specified"})
 			return
 		}
 
-		// Get the provider (validate it exists)
+		// Validate provider exists
 		_, err := o.GetProvider(providerName)
 		if err != nil {
-			c.JSON(400, gin.H{"error": "Provider not found"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 			return
 		}
 
-		// Set the provider for this request
-		c.Set("provider", providerName)
-		
-		// Use Gothic to begin the OAuth flow
+		// Use Gothic to begin auth
 		gothic.BeginAuthHandler(c.Writer, c.Request)
 	}
 }
 
 // CompleteAuthHandler handles the OAuth callback
-func (o *oauthService) CompleteAuthHandler() gin.HandlerFunc {
+func (o *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Get provider name from URL parameter
 		providerName := c.Param("provider")
 		if providerName == "" {
-			c.JSON(400, gin.H{"error": "Provider name is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Provider not specified"})
 			return
 		}
 
-		// Get the provider (validate it exists)
+		// Validate provider exists
 		_, err := o.GetProvider(providerName)
 		if err != nil {
-			c.JSON(400, gin.H{"error": "Provider not found"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 			return
 		}
 
-		// Set the provider for this request
-		c.Set("provider", providerName)
-
-		// Use Gothic to complete the OAuth flow
+		// Use Gothic to complete auth
 		gothUser, err := gothic.CompleteUserAuth(c.Writer, c.Request)
 		if err != nil {
-			// Redirect to failure URL or return error
-			if o.config.FailureURL != "" {
-				c.Redirect(302, o.config.FailureURL)
-			} else {
-				c.JSON(400, gin.H{"error": "OAuth authentication failed", "details": err.Error()})
-			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Authentication failed"})
 			return
 		}
 
-		// Map Goth user to our UserInfo format
+		// Map to our UserInfo structure
 		userInfo, err := o.MapGothUserToUserInfo(gothUser)
 		if err != nil {
-			if o.config.FailureURL != "" {
-				c.Redirect(302, o.config.FailureURL)
-			} else {
-				c.JSON(400, gin.H{"error": "Failed to process user data", "details": err.Error()})
-			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "User mapping failed"})
 			return
 		}
 
-		// Store user info in session for later use
-		sessionKey := generateSessionKey()
-		session, err := o.sessionStore.New(c.Request, sessionKey)
-		if err == nil {
-			session.Values["user_id"] = userInfo.ID
-			session.Values["email"] = userInfo.Email
-			session.Values["role"] = userInfo.Role
-			session.Values["provider"] = providerName
-			session.Values["oauth_state"] = "authenticated"
-			session.Save(c.Request, c.Writer)
-		}
-
-		// Redirect to success URL or return user data
-		if o.config.SuccessURL != "" {
-			c.Redirect(302, o.config.SuccessURL)
-		} else {
-			c.JSON(200, gin.H{
-				"message": "OAuth authentication successful",
-				"user":    userInfo,
-				"provider": providerName,
-			})
-		}
+		// Return user info (in real implementation, you'd create a session/JWT here)
+		c.JSON(http.StatusOK, userInfo)
 	}
 }
 
 // MapGothUserToUserInfo maps a Goth user to our UserInfo structure
-func (o *oauthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error) {
+func (o *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error) {
 	// Validate required fields
 	if gothUser.Email == "" {
-		return UserInfo{}, fmt.Errorf("oauth user email is required")
+		return UserInfo{}, errors.New("email is required")
 	}
 
-	// Try to find existing user by email first
-	if o.config.FindUserByEmail != nil {
+	// Try to find existing user by email if callback is provided
+	if o.config != nil && o.config.FindUserByEmail != nil {
 		existingUser, err := o.config.FindUserByEmail(gothUser.Email)
 		if err == nil {
 			// User exists, return existing user info
@@ -292,7 +256,7 @@ func (o *oauthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, erro
 	
 	userInfo := UserInfo{
 		Email: gothUser.Email,
-		Role:  "customer", // Default role for OAuth users
+		Role:  "user", // Default role for OAuth users
 	}
 
 	// Try to extract ID from Goth user data

@@ -246,9 +246,8 @@ func TestOAuthServiceInitialization(t *testing.T) {
 			} else {
 				assert.NotNil(t, oauthService)
 				
-				// Test that the service implements the interface
-				_, ok := oauthService.(OAuthService)
-				assert.True(t, ok, "OAuth service should implement OAuthService interface")
+				// Test that the service is properly initialized
+				assert.NotNil(t, oauthService.Providers)
 			}
 		})
 	}
@@ -322,7 +321,7 @@ func TestOAuthServiceInterface(t *testing.T) {
 	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
-	assert.Equal(t, "customer", userInfo.Role)
+	assert.Equal(t, "user", userInfo.Role)
 	assert.Equal(t, uint(123), userInfo.ID)
 }
 
@@ -416,7 +415,7 @@ func TestUserMapping(t *testing.T) {
 			expectedUser: UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
-				Role:  "customer",
+				Role:  "user",
 			},
 		},
 		{
@@ -429,7 +428,7 @@ func TestUserMapping(t *testing.T) {
 			expectedUser: UserInfo{
 				ID:    0, // No ID for new users
 				Email: "newuser@example.com",
-				Role:  "customer",
+				Role:  "user",
 			},
 		},
 		{
@@ -443,7 +442,7 @@ func TestUserMapping(t *testing.T) {
 			expectedUser: UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
-				Role:  "customer",
+				Role:  "user",
 			},
 		},
 		{
@@ -451,10 +450,9 @@ func TestUserMapping(t *testing.T) {
 			gothUser: goth.User{
 				UserID: "123",
 				Name:   "Test User",
-				// Email: missing
 			},
 			expectError: true,
-			errorMsg:    "oauth user email is required",
+			errorMsg:    "email is required",
 		},
 		{
 			name: "Empty Email",
@@ -464,20 +462,20 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: true,
-			errorMsg:    "oauth user email is required",
+			errorMsg:    "email is required",
 		},
 		{
 			name: "Existing User by Email",
 			gothUser: goth.User{
-				UserID: "999", // Different ID
-				Email:  "test@example.com", // Existing email
+				UserID: "999", // Different ID, but email matches existing user
+				Email:  "test@example.com",
 				Name:   "Test User",
 			},
 			expectError: false,
 			expectedUser: UserInfo{
-				ID:    1, // Should return existing user ID
+				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
-				Role:  "customer",
+				Role:  "user",
 			},
 		},
 	}
@@ -528,6 +526,6 @@ func TestUserMappingWithoutCallbacks(t *testing.T) {
 	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
-	assert.Equal(t, "customer", userInfo.Role)
+	assert.Equal(t, "user", userInfo.Role)
 	assert.Equal(t, uint(123), userInfo.ID)
 } 

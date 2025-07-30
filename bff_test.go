@@ -1,24 +1,31 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/ExpanseVR/gin-auth-kit/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"
 )
 
+// Test-specific errors (since we moved the real ones)
+var (
+	ErrSessionNotFound = errors.New("session not found")
+)
+
 // Mock session store for testing
 type mockSessionStore struct {
-	sessions map[string]*Session
+	sessions map[string]string // Just store SID -> data mapping
 }
 
 func newMockSessionStore() *mockSessionStore {
 	return &mockSessionStore{
-		sessions: make(map[string]*Session),
+		sessions: make(map[string]string),
 	}
 }
 
@@ -34,55 +41,76 @@ func (m *mockSessionStore) Save(r *http.Request, w http.ResponseWriter, s *sessi
 	return nil
 }
 
+// mockSessionServiceImpl implements SessionService for testing
+type mockSessionServiceImpl struct{}
+
+func (m *mockSessionServiceImpl) CreateSession(user UserInfo, expiry time.Duration) (string, error) {
+	return "test_sid", nil
+}
+
+func (m *mockSessionServiceImpl) GetSession(sid string) (UserInfo, error) {
+	if sid == "" {
+		return UserInfo{}, ErrInvalidSession
+	}
+	return UserInfo{}, ErrSessionNotFound
+}
+
+func (m *mockSessionServiceImpl) DeleteSession(sid string) error {
+	if sid == "" {
+		return ErrInvalidSession
+	}
+	return nil
+}
+
+func (m *mockSessionServiceImpl) ValidateSession(sid string) (UserInfo, error) {
+	if sid == "" {
+		return UserInfo{}, ErrInvalidSession
+	}
+	return UserInfo{}, ErrSessionNotFound
+}
+
 // TestSessionService tests the SessionService functionality
 func TestSessionService(t *testing.T) {
-	mockStore := newMockSessionStore()
-	sessionService := NewSessionService(mockStore)
+	// SessionService is now an interface that users must implement
+	// These tests are no longer relevant since we removed the placeholder implementation
+	t.Skip("SessionService is now an interface - users must provide their own implementation")
+}
 
-	t.Run("CreateSession", func(t *testing.T) {
-		user := UserInfo{ID: 1, Email: "test@example.com", Role: "user"}
-		sid, err := sessionService.CreateSession(user, 10*time.Minute)
+// TestGenerateSecureSID tests the public GenerateSecureSID utility function
+func TestGenerateSecureSID(t *testing.T) {
+	t.Run("GeneratesValidSID", func(t *testing.T) {
+		sid, err := utils.GenerateSecureSID()
 		
 		assert.NoError(t, err)
 		assert.NotEmpty(t, sid)
-		assert.True(t, len(sid) > 10) // Should be a secure random string
+		assert.True(t, len(sid) > 60) // Should be "sid_" + 64 hex chars = 68 total
+		assert.Contains(t, sid, "sid_") // Should have the prefix
 	})
 
-	t.Run("GetSession_EmptySID", func(t *testing.T) {
-		_, err := sessionService.GetSession("")
-		assert.Error(t, err)
-		assert.Equal(t, ErrInvalidSession, err)
+	t.Run("GeneratesUniqueSIDs", func(t *testing.T) {
+		sid1, err1 := utils.GenerateSecureSID()
+		sid2, err2 := utils.GenerateSecureSID()
+		
+		assert.NoError(t, err1)
+		assert.NoError(t, err2)
+		assert.NotEqual(t, sid1, sid2) // Should generate unique IDs
 	})
 
-	t.Run("GetSession_NotFound", func(t *testing.T) {
-		_, err := sessionService.GetSession("nonexistent_sid")
-		assert.Error(t, err)
-		assert.Equal(t, ErrSessionNotFound, err)
-	})
-
-	t.Run("DeleteSession_EmptySID", func(t *testing.T) {
-		err := sessionService.DeleteSession("")
-		assert.Error(t, err)
-		assert.Equal(t, ErrInvalidSession, err)
-	})
-
-	t.Run("DeleteSession_Success", func(t *testing.T) {
-		err := sessionService.DeleteSession("test_sid")
-		assert.NoError(t, err)
-	})
-
-	t.Run("ValidateSession_EmptySID", func(t *testing.T) {
-		_, err := sessionService.ValidateSession("")
-		assert.Error(t, err)
-		assert.Equal(t, ErrInvalidSession, err)
+	t.Run("ConsistentFormat", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			sid, err := utils.GenerateSecureSID()
+			assert.NoError(t, err)
+			assert.Regexp(t, `^sid_[a-f0-9]{64}$`, sid) // Should match expected format
+		}
 	})
 }
 
+
+
 // TestJWTExchangeService tests the JWTExchangeService functionality
 func TestJWTExchangeService(t *testing.T) {
-	mockStore := newMockSessionStore()
-	sessionService := NewSessionService(mockStore)
-	jwtExchangeService := NewJWTExchangeService("test-secret", sessionService, 10*time.Minute)
+	mockSessionService := &mockSessionServiceImpl{}
+	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
 
 	t.Run("ExchangeSessionForJWT_EmptySID", func(t *testing.T) {
 		_, err := jwtExchangeService.ExchangeSessionForJWT("")
@@ -105,10 +133,9 @@ func TestJWTExchangeService(t *testing.T) {
 
 // TestBFFAuthMiddleware tests the BFF auth middleware functionality
 func TestBFFAuthMiddleware(t *testing.T) {
-	mockStore := newMockSessionStore()
-	sessionService := NewSessionService(mockStore)
-	jwtExchangeService := NewJWTExchangeService("test-secret", sessionService, 10*time.Minute)
-	bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, "sid")
+	mockSessionService := &mockSessionServiceImpl{}
+	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
+	bffMiddleware := NewBFFAuthMiddleware(mockSessionService, jwtExchangeService, "sid")
 
 	gin.SetMode(gin.TestMode)
 
@@ -313,23 +340,20 @@ func TestCookieUtils(t *testing.T) {
 
 // TestBFFServiceConstructors tests the BFF service constructors
 func TestBFFServiceConstructors(t *testing.T) {
-	mockStore := newMockSessionStore()
+	mockSessionService := &mockSessionServiceImpl{}
 
-	t.Run("NewSessionService", func(t *testing.T) {
-		sessionService := NewSessionService(mockStore)
-		assert.NotNil(t, sessionService)
+	t.Run("MockSessionService", func(t *testing.T) {
+		assert.NotNil(t, mockSessionService)
 	})
 
 	t.Run("NewJWTExchangeService", func(t *testing.T) {
-		sessionService := NewSessionService(mockStore)
-		jwtExchangeService := NewJWTExchangeService("test-secret", sessionService, 10*time.Minute)
+		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
 		assert.NotNil(t, jwtExchangeService)
 	})
 
 	t.Run("NewBFFAuthMiddleware", func(t *testing.T) {
-		sessionService := NewSessionService(mockStore)
-		jwtExchangeService := NewJWTExchangeService("test-secret", sessionService, 10*time.Minute)
-		bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, "sid")
+		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, 10*time.Minute)
+		bffMiddleware := NewBFFAuthMiddleware(mockSessionService, jwtExchangeService, "sid")
 		assert.NotNil(t, bffMiddleware)
 	})
 }
@@ -342,6 +366,7 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			SessionMaxAge: 86400,
 			JWTSecret:     "jwt-secret",
 			JWTExpiry:     10 * time.Minute,
+			SessionService: &mockSessionServiceImpl{},
 			FindUserByEmail: func(email string) (UserInfo, error) {
 				return UserInfo{}, nil
 			},
@@ -437,10 +462,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 
 	t.Run("Missing_FindUserByEmail", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: 86400,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     10 * time.Minute,
+			SessionSecret:   "test-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "jwt-secret",
+			JWTExpiry:       10 * time.Minute,
+			SessionService:  &mockSessionServiceImpl{},
 			FindUserByID: func(id uint) (UserInfo, error) {
 				return UserInfo{}, nil
 			},
@@ -453,10 +479,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 
 	t.Run("Missing_FindUserByID", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: 86400,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     10 * time.Minute,
+			SessionSecret:   "test-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "jwt-secret",
+			JWTExpiry:       10 * time.Minute,
+			SessionService:  &mockSessionServiceImpl{},
 			FindUserByEmail: func(email string) (UserInfo, error) {
 				return UserInfo{}, nil
 			},
@@ -469,10 +496,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 
 	t.Run("Default_Cookie_Values", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: 86400,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     10 * time.Minute,
+			SessionSecret:   "test-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "jwt-secret",
+			JWTExpiry:       10 * time.Minute,
+			SessionService:  &mockSessionServiceImpl{},
 			FindUserByEmail: func(email string) (UserInfo, error) {
 				return UserInfo{}, nil
 			},

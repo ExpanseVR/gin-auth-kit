@@ -1,11 +1,27 @@
 package auth
 
 import (
+	"time"
+
 	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
 
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 )
+
+// JWTOptions contains configuration for JWT middleware
+type JWTOptions struct {
+	Realm             string
+	Key               []byte
+	Timeout           time.Duration
+	MaxRefresh        time.Duration
+	IdentityKey       string
+	FindUserByEmail   FindUserByEmailFunc
+	FindUserByID      FindUserByIDFunc
+	SessionSecure     bool
+	SessionDomain     string
+	SessionSameSite   string
+}
 
 // JWTMiddleware implements AuthMiddleware using JWT tokens
 type JWTMiddleware struct {
@@ -15,16 +31,23 @@ type JWTMiddleware struct {
 // Verify JWTMiddleware implements AuthMiddleware interface
 var _ AuthMiddleware = (*JWTMiddleware)(nil)
 
-func newJWTMiddleware(opts *AuthOptions) (*JWTMiddleware, error) {
+// NewJWTMiddleware creates a new JWT middleware with the given options
+func NewJWTMiddleware(opts *JWTOptions) *JWTMiddleware {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Realm:           opts.JWTRealm,
-		Key:             []byte(opts.JWTSecret),
-		Timeout:         opts.TokenExpireTime,
-		MaxRefresh:      opts.RefreshExpireTime,
+		Realm:           opts.Realm,
+		Key:             opts.Key,
+		Timeout:         opts.Timeout,
+		MaxRefresh:      opts.MaxRefresh,
 		IdentityKey:     opts.IdentityKey,
 		PayloadFunc:     PayloadFunc,
-		IdentityHandler: IdentityHandler(opts),
-		Authenticator:   Authenticator(opts),
+		IdentityHandler: IdentityHandler(&AuthOptions{
+			FindUserByEmail: opts.FindUserByEmail,
+			FindUserByID:    opts.FindUserByID,
+		}),
+		Authenticator:   Authenticator(&AuthOptions{
+			FindUserByEmail: opts.FindUserByEmail,
+			FindUserByID:    opts.FindUserByID,
+		}),
 		Authorizator:    Authorizator,
 		Unauthorized:    Unauthorized,
 		TokenLookup:     "header: Authorization, query: token, cookie: jwt",
@@ -40,12 +63,14 @@ func newJWTMiddleware(opts *AuthOptions) (*JWTMiddleware, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		// In the new architecture, we'll panic on JWT middleware creation errors
+		// since this indicates a configuration problem that should be caught early
+		panic(err)
 	}
 
 	return &JWTMiddleware{
 		GinJWTMiddleware: authMiddleware,
-	}, nil
+	}
 }
 
 func (j *JWTMiddleware) MiddlewareFunc() gin.HandlerFunc {

@@ -13,6 +13,7 @@ var (
 	ErrJWTGenerationFailed = errors.New("failed to generate JWT")
 	ErrJWTValidationFailed = errors.New("failed to validate JWT")
 	ErrInvalidJWTSecret    = errors.New("invalid JWT secret")
+	ErrInvalidSession      = errors.New("invalid session")
 )
 
 // jwtExchangeService implements the SessionExchangeService interface

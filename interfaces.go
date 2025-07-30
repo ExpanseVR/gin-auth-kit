@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
-	"github.com/markbates/goth"
 )
 
 // UserInfo represents user data returned by callback functions
@@ -23,6 +22,15 @@ type UserInfo struct {
 // UserFinder callback function types
 type FindUserByEmailFunc func(email string) (UserInfo, error)
 type FindUserByIDFunc func(id uint) (UserInfo, error)
+
+// AuthMiddleware defines the interface that all auth middleware must implement
+// This allows for different auth strategies (JWT, session, etc.)
+type AuthMiddleware interface {
+	MiddlewareFunc() gin.HandlerFunc
+	LoginHandler() gin.HandlerFunc
+	LogoutHandler() gin.HandlerFunc
+	RefreshHandler() gin.HandlerFunc
+}
 
 // OAuthProvider represents configuration for an OAuth provider
 type OAuthProvider struct {
@@ -43,20 +51,6 @@ type OAuthConfig struct {
 	// User management callbacks
 	FindUserByEmail FindUserByEmailFunc `json:"-"`
 	FindUserByID    FindUserByIDFunc    `json:"-"`
-}
-
-// OAuthService defines the interface for OAuth operations
-type OAuthService interface {
-	// Provider management
-	RegisterProvider(name string, provider goth.Provider)
-	GetProvider(name string) (goth.Provider, error)
-	
-	// OAuth flow handlers
-	BeginAuthHandler() gin.HandlerFunc
-	CompleteAuthHandler() gin.HandlerFunc
-	
-	// User mapping
-	MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error)
 }
 
 // SessionService defines the interface for session management
@@ -95,6 +89,9 @@ type BFFAuthOptions struct {
 	SIDCookieName string
 	SIDCookiePath string
 	
+	// Session service (provided by implementing project)
+	SessionService SessionService
+	
 	// User callbacks
 	FindUserByEmail FindUserByEmailFunc
 	FindUserByID    FindUserByIDFunc
@@ -122,6 +119,10 @@ func (opts *BFFAuthOptions) ValidateBFFAuthOptions() error {
 
 	if opts.JWTExpiry <= 0 {
 		return errors.New("JWTExpiry must be positive")
+	}
+
+	if opts.SessionService == nil {
+		return errors.New("SessionService is required")
 	}
 
 	if opts.SIDCookieName == "" {
