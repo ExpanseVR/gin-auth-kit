@@ -31,13 +31,11 @@ func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
 			return nil
 		}
 		
-		// Convert to uint (JWT stores numbers as float64)
 		userID, ok := userIDFloat.(float64)
 		if !ok {
 			return nil
 		}
 
-		// Use callback to get user data
 		user, err := opts.FindUserByID(uint(userID))
 		if err != nil {
 			return nil 
@@ -52,7 +50,7 @@ func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
 func Authenticator(opts *AuthOptions) func(c *gin.Context) (interface{}, error) {
 	return func(c *gin.Context) (interface{}, error) {
 		var loginRequest struct {
-			Email    string `json:"email" binding:"required,email"`
+			Email    string `json:"email" binding:"required"`
 			Password string `json:"password" binding:"required"`
 		}
 
@@ -60,14 +58,13 @@ func Authenticator(opts *AuthOptions) func(c *gin.Context) (interface{}, error) 
 			return nil, jwt.ErrMissingLoginValues
 		}
 
-		// Use callback to get user by email
 		user, err := opts.FindUserByEmail(loginRequest.Email)
 		if err != nil {
 			return nil, jwt.ErrFailedAuthentication
 		}
 
 		if err := utils.VerifyPassword(user.PasswordHash, loginRequest.Password); err != nil {
-			return nil, jwt.ErrFailedAuthentication 
+			return nil, jwt.ErrFailedAuthentication
 		}
 
 		return &user, nil
@@ -78,9 +75,7 @@ func Authenticator(opts *AuthOptions) func(c *gin.Context) (interface{}, error) 
 // Called when: Access to protected endpoint is requested - checks user permissions
 func Authorizator(data interface{}, c *gin.Context) bool {
 	if user, ok := data.(*UserInfo); ok {
-		// Basic authorization - all authenticated users allowed
-		// Override this function for role-based access control
-		return user.ID > 0
+		return user.Role == "admin" || user.Role == "user"
 	}
 	return false
 }

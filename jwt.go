@@ -1,30 +1,50 @@
 package auth
 
 import (
+	"fmt"
+	"time"
+
 	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
 
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 )
 
-// JWTMiddleware implements AuthMiddleware using JWT tokens
+type JWTOptions struct {
+	Realm             string
+	Key               []byte
+	Timeout           time.Duration
+	MaxRefresh        time.Duration
+	IdentityKey       string
+	FindUserByEmail   FindUserByEmailFunc
+	FindUserByID      FindUserByIDFunc
+	SessionSecure     bool
+	SessionDomain     string
+	SessionSameSite   string
+}
+
 type JWTMiddleware struct {
 	*jwt.GinJWTMiddleware
 }
 
-// Verify JWTMiddleware implements AuthMiddleware interface
 var _ AuthMiddleware = (*JWTMiddleware)(nil)
 
-func newJWTMiddleware(opts *AuthOptions) (*JWTMiddleware, error) {
+func NewJWTMiddleware(opts *JWTOptions) (*JWTMiddleware, error) {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Realm:           opts.JWTRealm,
-		Key:             []byte(opts.JWTSecret),
-		Timeout:         opts.TokenExpireTime,
-		MaxRefresh:      opts.RefreshExpireTime,
+		Realm:           opts.Realm,
+		Key:             opts.Key,
+		Timeout:         opts.Timeout,
+		MaxRefresh:      opts.MaxRefresh,
 		IdentityKey:     opts.IdentityKey,
 		PayloadFunc:     PayloadFunc,
-		IdentityHandler: IdentityHandler(opts),
-		Authenticator:   Authenticator(opts),
+		IdentityHandler: IdentityHandler(&AuthOptions{
+			FindUserByEmail: opts.FindUserByEmail,
+			FindUserByID:    opts.FindUserByID,
+		}),
+		Authenticator:   Authenticator(&AuthOptions{
+			FindUserByEmail: opts.FindUserByEmail,
+			FindUserByID:    opts.FindUserByID,
+		}),
 		Authorizator:    Authorizator,
 		Unauthorized:    Unauthorized,
 		TokenLookup:     "header: Authorization, query: token, cookie: jwt",
@@ -40,7 +60,7 @@ func newJWTMiddleware(opts *AuthOptions) (*JWTMiddleware, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create JWT middleware: %w", err)
 	}
 
 	return &JWTMiddleware{
