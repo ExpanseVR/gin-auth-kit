@@ -149,9 +149,10 @@ func TestErrorHandling(t *testing.T) {
 		}
 
 		authService, err := NewAuthService(opts)
-		// Should still create service - validation happens at JWT middleware level
-		assert.NoError(t, err)
-		assert.NotNil(t, authService)
+		// Should now fail validation - FindUserByEmail is required for JWT
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "FindUserByEmail callback is required")
+		assert.Nil(t, authService)
 	})
 
 	t.Run("Missing_FindUserByID", func(t *testing.T) {
@@ -167,9 +168,10 @@ func TestErrorHandling(t *testing.T) {
 		}
 
 		authService, err := NewAuthService(opts)
-		// Should still create service - validation happens at JWT middleware level
-		assert.NoError(t, err)
-		assert.NotNil(t, authService)
+		// Should now fail validation - FindUserByID is required for JWT
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "FindUserByID callback is required")
+		assert.Nil(t, authService)
 	})
 
 	t.Run("Valid_configuration", func(t *testing.T) {
@@ -188,6 +190,121 @@ func TestErrorHandling(t *testing.T) {
 		authService, err := NewAuthService(opts)
 		assert.NoError(t, err)
 		assert.NotNil(t, authService)
+	})
+}
+
+func TestAuthOptionsValidation(t *testing.T) {
+	t.Run("Valid_AuthOptions", func(t *testing.T) {
+		opts := &AuthOptions{
+			JWTSecret:         "test-secret",
+			JWTRealm:         "test",
+			TokenExpireTime:   time.Hour,
+			RefreshExpireTime: time.Hour * 24,
+			IdentityKey:       "id",
+			SessionSecret:     "session-secret",
+			SessionMaxAge:     86400,
+			FindUserByEmail:   mockFindUserByEmail,
+			FindUserByID:      mockFindUserByID,
+		}
+
+		err := opts.ValidateAuthOptions()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Nil_AuthOptions", func(t *testing.T) {
+		var opts *AuthOptions = nil
+		err := opts.ValidateAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "AuthOptions cannot be nil")
+	})
+
+	t.Run("Missing_SessionSecret", func(t *testing.T) {
+		opts := &AuthOptions{
+			JWTSecret:       "test-secret",
+			SessionMaxAge:   86400,
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
+		}
+
+		err := opts.ValidateAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "SessionSecret is required")
+	})
+
+	t.Run("Invalid_SessionMaxAge", func(t *testing.T) {
+		opts := &AuthOptions{
+			JWTSecret:       "test-secret",
+			SessionSecret:   "session-secret",
+			SessionMaxAge:   -1,
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
+		}
+
+		err := opts.ValidateAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "SessionMaxAge must be positive")
+	})
+
+	t.Run("OAuth_Only_Configuration", func(t *testing.T) {
+		opts := &AuthOptions{
+			SessionSecret: "session-secret",
+			SessionMaxAge: 86400,
+			OAuth: &OAuthConfig{
+				Providers: map[string]OAuthProvider{
+					"google": {
+						ClientID:     "test-client-id",
+						ClientSecret: "test-client-secret",
+						RedirectURL:  "https://example.com/callback",
+						Scopes:       []string{"email", "profile"},
+					},
+				},
+				BaseURL:    "https://example.com",
+				SuccessURL: "/dashboard",
+				FailureURL: "/login",
+			},
+		}
+
+		err := opts.ValidateAuthOptions()
+		assert.NoError(t, err)
+		// Should set defaults
+		assert.Equal(t, "gin-auth-kit", opts.JWTRealm)
+		assert.Equal(t, "Lax", opts.SessionSameSite)
+		assert.Equal(t, 12, opts.BcryptCost)
+	})
+
+	t.Run("JWT_Missing_TokenExpireTime", func(t *testing.T) {
+		opts := &AuthOptions{
+			JWTSecret:       "test-secret",
+			SessionSecret:   "session-secret",
+			SessionMaxAge:   86400,
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
+		}
+
+		err := opts.ValidateAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "TokenExpireTime must be positive")
+	})
+
+	t.Run("Default_Values_Set", func(t *testing.T) {
+		opts := &AuthOptions{
+			JWTSecret:         "test-secret",
+			TokenExpireTime:   time.Hour,
+			RefreshExpireTime: time.Hour * 24,
+			SessionSecret:     "session-secret",
+			SessionMaxAge:     86400,
+			FindUserByEmail:   mockFindUserByEmail,
+			FindUserByID:      mockFindUserByID,
+		}
+
+		err := opts.ValidateAuthOptions()
+		assert.NoError(t, err)
+		
+		// Check that defaults were set
+		assert.Equal(t, "user_id", opts.IdentityKey)
+		assert.Equal(t, "gin-auth-kit", opts.JWTRealm)
+		assert.Equal(t, "Lax", opts.SessionSameSite)
+		assert.Equal(t, 12, opts.BcryptCost)
 	})
 }
 

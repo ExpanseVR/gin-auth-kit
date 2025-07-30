@@ -220,4 +220,63 @@ type AuthOptions struct {
 	// Callback Functions
 	FindUserByEmail FindUserByEmailFunc
 	FindUserByID    FindUserByIDFunc
+}
+
+func (opts *AuthOptions) ValidateAuthOptions() error {
+	if opts == nil {
+		return errors.New("AuthOptions cannot be nil")
+	}
+
+	if opts.SessionSecret == "" {
+		return errors.New("SessionSecret is required")
+	}
+
+	if opts.SessionMaxAge <= 0 {
+		return errors.New("SessionMaxAge must be positive")
+	}
+
+	// JWT validation (only if JWT is being used)
+	if opts.JWTSecret != "" {
+		if opts.TokenExpireTime <= 0 {
+			return errors.New("TokenExpireTime must be positive")
+		}
+
+		if opts.RefreshExpireTime <= 0 {
+			return errors.New("RefreshExpireTime must be positive")
+		}
+
+		if opts.IdentityKey == "" {
+			opts.IdentityKey = "user_id" // Set default
+		}
+
+		if opts.FindUserByEmail == nil {
+			return errors.New("FindUserByEmail callback is required")
+		}
+
+		if opts.FindUserByID == nil {
+			return errors.New("FindUserByID callback is required")
+		}
+	}
+
+	// Set defaults for optional session fields
+	if opts.JWTRealm == "" {
+		opts.JWTRealm = "gin-auth-kit" // Set default
+	}
+
+	if opts.SessionSameSite == "" {
+		opts.SessionSameSite = "Lax" // Set default
+	}
+
+	if opts.BcryptCost <= 0 {
+		opts.BcryptCost = 12 // Set default
+	}
+
+	// Validate OAuth configuration if provided
+	if opts.OAuth != nil {
+		if err := opts.OAuth.ValidateOAuthConfig(); err != nil {
+			return fmt.Errorf("OAuth configuration invalid: %w", err)
+		}
+	}
+
+	return nil
 } 

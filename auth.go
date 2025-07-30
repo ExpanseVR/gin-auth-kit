@@ -44,8 +44,8 @@ func createSessionStore(sessionSecret, sessionDomain string, sessionMaxAge int, 
 // Creates: Optional JWT service + optional OAuth service
 // Use for: Traditional APIs, mobile apps, OAuth-only auth, stateless systems
 func NewAuthService(opts *AuthOptions) (*AuthService, error) {
-	if opts == nil {
-		return nil, fmt.Errorf("AuthOptions cannot be nil")
+	if err := opts.ValidateAuthOptions(); err != nil {
+		return nil, fmt.Errorf("invalid AuthOptions: %w", err)
 	}
 
 	sessionStore := createSessionStore(opts.SessionSecret, opts.SessionDomain, opts.SessionMaxAge, opts.SessionSecure)

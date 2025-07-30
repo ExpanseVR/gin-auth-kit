@@ -158,11 +158,12 @@
 
 ### 3.4 Configuration Integration
 
-- [ ] Create OAuth configuration validation
+- [x] Create OAuth configuration validation
+- [x] Create AuthOptions configuration validation (added for consistency)
 - [ ] Add environment variable support for OAuth config
 - [ ] Create configuration examples and templates
 - [ ] Add configuration documentation
-- [ ] Create BFF configuration validation
+- [x] Create BFF configuration validation
 - [ ] Add environment variable support for BFF config
 - [ ] Create BFF configuration examples and templates
 - [ ] Add BFF configuration documentation
