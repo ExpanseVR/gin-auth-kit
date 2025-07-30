@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -20,18 +21,21 @@ func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService *JWT
 	}
 }
 
+func (b *BFFAuthMiddleware) validateSessionFromCookie(c *gin.Context) (string, UserInfo, error) {
+	sid := b.getSIDFromCookie(c)
+	if sid == "" {
+		return "", UserInfo{}, errors.New("no session cookie")
+	}
+	
+	userInfo, err := b.sessionService.ValidateSession(sid)
+	return sid, userInfo, err
+}
+
 func (b *BFFAuthMiddleware) RequireSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sid := b.getSIDFromCookie(c)
-		if sid == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
-			c.Abort()
-			return
-		}
-
-		userInfo, err := b.sessionService.ValidateSession(sid)
+		sid, userInfo, err := b.validateSessionFromCookie(c)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
 			c.Abort()
 			return
 		}
@@ -44,16 +48,9 @@ func (b *BFFAuthMiddleware) RequireSession() gin.HandlerFunc {
 
 func (b *BFFAuthMiddleware) RequireValidSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sid := b.getSIDFromCookie(c)
-		if sid == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
-			c.Abort()
-			return
-		}
-
-		userInfo, err := b.sessionService.ValidateSession(sid)
+		sid, userInfo, err := b.validateSessionFromCookie(c)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
 			c.Abort()
 			return
 		}
@@ -74,13 +71,7 @@ func (b *BFFAuthMiddleware) RequireValidSession() gin.HandlerFunc {
 
 func (b *BFFAuthMiddleware) OptionalSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sid := b.getSIDFromCookie(c)
-		if sid == "" {
-			c.Next()
-			return
-		}
-
-		userInfo, err := b.sessionService.ValidateSession(sid)
+		sid, userInfo, err := b.validateSessionFromCookie(c)
 		if err != nil {
 			c.Next()
 			return
