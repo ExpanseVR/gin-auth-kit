@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CookieConfig represents configuration for SID cookies
 type CookieConfig struct {
 	Name     string
 	Domain   string
@@ -18,31 +17,27 @@ type CookieConfig struct {
 	SameSite http.SameSite
 }
 
-// DefaultCookieConfig returns a default cookie configuration
 func DefaultCookieConfig() CookieConfig {
 	return CookieConfig{
 		Name:     "sid",
 		Domain:   "",
 		Path:     "/",
-		MaxAge:   86400 * 30, // 30 days
-		Secure:   false,      // Set to true in production with HTTPS
+		MaxAge:   86400 * 30,
+		Secure:   false,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
 }
 
-// SetSIDCookie sets a secure SID cookie in the response
 func SetSIDCookie(c *gin.Context, sid string, config CookieConfig) {
 	if sid == "" {
 		return
 	}
 
-	// Use default config if not provided
 	if config.Name == "" {
 		config = DefaultCookieConfig()
 	}
 
-	// Set cookie options
 	c.SetCookie(
 		config.Name,
 		sid,
@@ -54,10 +49,9 @@ func SetSIDCookie(c *gin.Context, sid string, config CookieConfig) {
 	)
 }
 
-// GetSIDCookie retrieves the SID from the request cookies
 func GetSIDCookie(c *gin.Context, cookieName string) string {
 	if cookieName == "" {
-		cookieName = "sid" // Default cookie name
+		cookieName = "sid"
 	}
 
 	cookie, err := c.Cookie(cookieName)
@@ -68,18 +62,27 @@ func GetSIDCookie(c *gin.Context, cookieName string) string {
 	return cookie
 }
 
-// ClearSIDCookie removes the SID cookie from the response
-func ClearSIDCookie(c *gin.Context, config CookieConfig) {
-	// Use default config if not provided
-	if config.Name == "" {
-		config = DefaultCookieConfig()
+func ClearSIDCookie(c *gin.Context, cookieName string) {
+	if cookieName == "" {
+		cookieName = "sid"
 	}
 
-	// Set cookie with past expiration to clear it
 	c.SetCookie(
-		config.Name,
+		cookieName,
 		"",
-		-1, // Expire immediately
+		-1,
+		"/",
+		"",
+		false,
+		true,
+	)
+}
+
+func SetSecureCookie(c *gin.Context, name, value string, config CookieConfig) {
+	c.SetCookie(
+		name,
+		value,
+		config.MaxAge,
 		config.Path,
 		config.Domain,
 		config.Secure,
@@ -87,20 +90,6 @@ func ClearSIDCookie(c *gin.Context, config CookieConfig) {
 	)
 }
 
-// SetSecureCookie sets a cookie with secure defaults
-func SetSecureCookie(c *gin.Context, name, value string, maxAge int) {
-	c.SetCookie(
-		name,
-		value,
-		maxAge,
-		"/",
-		"",
-		true,  // Secure
-		true,  // HttpOnly
-	)
-}
-
-// GetCookie retrieves a cookie value by name
 func GetCookie(c *gin.Context, name string) string {
 	cookie, err := c.Cookie(name)
 	if err != nil {
@@ -109,12 +98,11 @@ func GetCookie(c *gin.Context, name string) string {
 	return cookie
 }
 
-// ClearCookie removes a cookie by name
 func ClearCookie(c *gin.Context, name string) {
 	c.SetCookie(
 		name,
 		"",
-		-1, // Expire immediately
+		-1,
 		"/",
 		"",
 		false,
@@ -122,15 +110,12 @@ func ClearCookie(c *gin.Context, name string) {
 	)
 }
 
-// ValidateCookieConfig validates cookie configuration
 func ValidateCookieConfig(config CookieConfig) error {
 	if config.Name == "" {
-		return errors.New("cookie name is required")
+		return errors.New("cookie name cannot be empty")
 	}
-
 	if config.MaxAge < 0 {
-		return errors.New("cookie max age must be non-negative")
+		return errors.New("cookie MaxAge cannot be negative")
 	}
-
 	return nil
 } 

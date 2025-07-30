@@ -264,8 +264,7 @@ func TestCookieUtils(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
-		config := CookieConfig{Name: "test_sid", Path: "/"}
-		ClearSIDCookie(c, config)
+		ClearSIDCookie(c, "test_sid")
 		
 		// Check if cookie was cleared (max age = -1)
 		cookies := w.Result().Cookies()
@@ -279,7 +278,8 @@ func TestCookieUtils(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
-		SetSecureCookie(c, "secure_cookie", "value", 3600)
+		config := CookieConfig{MaxAge: 3600, Path: "/", HttpOnly: true}
+		SetSecureCookie(c, "secure_cookie", "value", config)
 		
 		cookies := w.Result().Cookies()
 		assert.Len(t, cookies, 1)

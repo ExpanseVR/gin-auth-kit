@@ -7,12 +7,10 @@ import (
 	"github.com/gorilla/sessions"
 )
 
-// JWTService groups JWT-related functionality
 type JWTService struct {
 	Middleware AuthMiddleware
 }
 
-// BFFService groups all BFF-related services
 type BFFService struct {
 	Sessions   SessionService
 	Exchange   *JWTExchangeService
@@ -30,13 +28,11 @@ type AuthService struct {
 	OAuth *OAuthService  // nil if no OAuth configured
 }
 
-// NewAuthService creates a new AuthService with JWT support
 func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 	if opts == nil {
 		return nil, fmt.Errorf("AuthOptions cannot be nil")
 	}
 
-	// Create session store for OAuth state management
 	sessionStore := sessions.NewCookieStore([]byte(opts.SessionSecret))
 	sessionStore.Options = &sessions.Options{
 		Domain:   opts.SessionDomain,
@@ -46,7 +42,6 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	// Create JWT middleware
 	jwtMiddleware := NewJWTMiddleware(&JWTOptions{
 		Realm:             opts.JWTRealm,
 		Key:               []byte(opts.JWTSecret),
@@ -60,7 +55,6 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 		SessionSameSite:   opts.SessionSameSite,
 	})
 
-	// Create JWT service group
 	jwtService := &JWTService{
 		Middleware: jwtMiddleware,
 	}
@@ -77,18 +71,16 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 	return &AuthService{
 		SessionStore: sessionStore,
 		JWT:          jwtService,
-		BFF:          nil, // Not available in JWT mode
+		BFF:          nil,
 		OAuth:        oauthService,
 	}, nil
 }
 
-// NewBFFAuthService creates a new AuthService with BFF support
 func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 	if err := opts.ValidateBFFAuthOptions(); err != nil {
 		return nil, fmt.Errorf("invalid BFF configuration: %w", err)
 	}
 
-	// Create session store for OAuth state management
 	sessionStore := sessions.NewCookieStore([]byte(opts.SessionSecret))
 	sessionStore.Options = &sessions.Options{
 		Domain:   opts.SessionDomain,
@@ -98,19 +90,16 @@ func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	// Use the provided SessionService
 	sessionService := opts.SessionService
 	jwtExchangeService := NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
 	bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, opts.SIDCookieName)
 
-	// Create BFF service group
 	bffService := &BFFService{
 		Sessions:   sessionService,
 		Exchange:   jwtExchangeService,
 		Middleware: bffMiddleware,
 	}
 
-	// Create OAuth service if configured
 	var oauthService *OAuthService
 	if opts.OAuth != nil {
 		if opts.OAuth.SessionStore == nil {
@@ -121,7 +110,7 @@ func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 
 	return &AuthService{
 		SessionStore: sessionStore,
-		JWT:          nil, // Not available in BFF mode
+		JWT:          nil,
 		BFF:          bffService,
 		OAuth:        oauthService,
 	}, nil

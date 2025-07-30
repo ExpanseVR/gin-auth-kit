@@ -9,7 +9,6 @@ import (
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 )
 
-// JWTOptions contains configuration for JWT middleware
 type JWTOptions struct {
 	Realm             string
 	Key               []byte
@@ -23,15 +22,12 @@ type JWTOptions struct {
 	SessionSameSite   string
 }
 
-// JWTMiddleware implements AuthMiddleware using JWT tokens
 type JWTMiddleware struct {
 	*jwt.GinJWTMiddleware
 }
 
-// Verify JWTMiddleware implements AuthMiddleware interface
 var _ AuthMiddleware = (*JWTMiddleware)(nil)
 
-// NewJWTMiddleware creates a new JWT middleware with the given options
 func NewJWTMiddleware(opts *JWTOptions) *JWTMiddleware {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Realm:           opts.Realm,
@@ -63,8 +59,6 @@ func NewJWTMiddleware(opts *JWTOptions) *JWTMiddleware {
 	})
 
 	if err != nil {
-		// In the new architecture, we'll panic on JWT middleware creation errors
-		// since this indicates a configuration problem that should be caught early
 		panic(err)
 	}
 
