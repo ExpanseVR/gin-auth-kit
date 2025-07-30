@@ -28,6 +28,9 @@ type AuthService struct {
 	OAuth *OAuthService  // nil if no OAuth configured
 }
 
+// NewAuthService creates a traditional AuthService (stateless/middleware-based)
+// Creates: Optional JWT service + optional OAuth service
+// Use for: Traditional APIs, mobile apps, OAuth-only auth, stateless systems
 func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 	if opts == nil {
 		return nil, fmt.Errorf("AuthOptions cannot be nil")
@@ -42,24 +45,26 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	jwtMiddleware := NewJWTMiddleware(&JWTOptions{
-		Realm:             opts.JWTRealm,
-		Key:               []byte(opts.JWTSecret),
-		Timeout:           opts.TokenExpireTime,
-		MaxRefresh:        opts.RefreshExpireTime,
-		IdentityKey:       opts.IdentityKey,
-		FindUserByEmail:   opts.FindUserByEmail,
-		FindUserByID:      opts.FindUserByID,
-		SessionSecure:     opts.SessionSecure,
-		SessionDomain:     opts.SessionDomain,
-		SessionSameSite:   opts.SessionSameSite,
-	})
+	var jwtService *JWTService
+	if opts.JWTSecret != "" {
+		jwtMiddleware := NewJWTMiddleware(&JWTOptions{
+			Realm:             opts.JWTRealm,
+			Key:               []byte(opts.JWTSecret),
+			Timeout:           opts.TokenExpireTime,
+			MaxRefresh:        opts.RefreshExpireTime,
+			IdentityKey:       opts.IdentityKey,
+			FindUserByEmail:   opts.FindUserByEmail,
+			FindUserByID:      opts.FindUserByID,
+			SessionSecure:     opts.SessionSecure,
+			SessionDomain:     opts.SessionDomain,
+			SessionSameSite:   opts.SessionSameSite,
+		})
 
-	jwtService := &JWTService{
-		Middleware: jwtMiddleware,
+		jwtService = &JWTService{
+			Middleware: jwtMiddleware,
+		}
 	}
 
-	// Create OAuth service if configured
 	var oauthService *OAuthService
 	if opts.OAuth != nil {
 		if opts.OAuth.SessionStore == nil {
@@ -76,6 +81,9 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 	}, nil
 }
 
+// NewBFFAuthService creates a BFF-centric AuthService (session-based with JWT exchange)
+// Creates: BFF service (always) + optional OAuth service
+// Use for: Backend-for-Frontend pattern, web apps, session-to-JWT conversion
 func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 	if err := opts.ValidateBFFAuthOptions(); err != nil {
 		return nil, fmt.Errorf("invalid BFF configuration: %w", err)
