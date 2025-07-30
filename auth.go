@@ -23,9 +23,21 @@ type AuthService struct {
 	SessionStore sessions.Store
 	
 	// Optional services (nil if not configured)
-	JWT   *JWTService    // nil in BFF-only mode
-	BFF   *BFFService    // nil in JWT-only mode
-	OAuth *OAuthService  // nil if no OAuth configured
+  JWT   *JWTService
+  BFF   *BFFService
+  OAuth *OAuthService
+}
+
+func createSessionStore(sessionSecret, sessionDomain string, sessionMaxAge int, sessionSecure bool) sessions.Store {
+	sessionStore := sessions.NewCookieStore([]byte(sessionSecret))
+	sessionStore.Options = &sessions.Options{
+		Domain:   sessionDomain,
+		MaxAge:   sessionMaxAge,
+		HttpOnly: true,
+		Secure:   sessionSecure,
+		SameSite: http.SameSiteLaxMode,
+	}
+	return sessionStore
 }
 
 // NewAuthService creates a traditional AuthService (stateless/middleware-based)
@@ -36,14 +48,7 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 		return nil, fmt.Errorf("AuthOptions cannot be nil")
 	}
 
-	sessionStore := sessions.NewCookieStore([]byte(opts.SessionSecret))
-	sessionStore.Options = &sessions.Options{
-		Domain:   opts.SessionDomain,
-		MaxAge:   opts.SessionMaxAge,
-		HttpOnly: true,
-		Secure:   opts.SessionSecure,
-		SameSite: http.SameSiteLaxMode,
-	}
+	sessionStore := createSessionStore(opts.SessionSecret, opts.SessionDomain, opts.SessionMaxAge, opts.SessionSecure)
 
 	var jwtService *JWTService
 	if opts.JWTSecret != "" {
@@ -89,14 +94,7 @@ func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 		return nil, fmt.Errorf("invalid BFF configuration: %w", err)
 	}
 
-	sessionStore := sessions.NewCookieStore([]byte(opts.SessionSecret))
-	sessionStore.Options = &sessions.Options{
-		Domain:   opts.SessionDomain,
-		MaxAge:   opts.SessionMaxAge,
-		HttpOnly: true,
-		Secure:   opts.SessionSecure,
-		SameSite: http.SameSiteLaxMode,
-	}
+	sessionStore := createSessionStore(opts.SessionSecret, opts.SessionDomain, opts.SessionMaxAge, opts.SessionSecure)
 
 	sessionService := opts.SessionService
 	jwtExchangeService := NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
