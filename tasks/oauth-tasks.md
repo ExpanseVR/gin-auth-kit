@@ -160,6 +160,7 @@
 
 - [x] Create OAuth configuration validation
 - [x] Create AuthOptions configuration validation (added for consistency)
+- [x] Refactor file organization (minimal) - moved structs to config.go, validation to validation.go
 - [ ] Add environment variable support for OAuth config
 - [ ] Create configuration examples and templates
 - [ ] Add configuration documentation
@@ -271,9 +272,25 @@
 - [ ] Add BFF logout functionality
 - [ ] Create BFF user profile management
 
-## Phase 6: BFF Phase 2 - Redis Optimization (Future)
+## Phase 6: Code Organization & Architecture (Next Priority)
 
-### 6.1 Redis Integration
+### 6.1 Domain-Based File Structure Refactoring
+
+- [ ] Create `types.go` for core types (UserInfo, callback function types)
+- [ ] Keep `interfaces.go` for core interfaces only (AuthMiddleware, SessionService)
+- [ ] Rename `config.go` to `auth_config.go` for AuthOptions + validation
+- [ ] Create `oauth_config.go` for OAuth structs + validation
+- [ ] Create `bff_config.go` for BFF structs + validation
+- [ ] Remove `validation.go` (split validation methods with their respective configs)
+- [ ] Update all imports across the codebase
+- [ ] Test that all functionality still works after refactoring
+- [ ] Update documentation to reflect new file structure
+
+**Benefits**: Better separation of concerns, easier navigation, follows Go conventions, future-proof for additional features.
+
+## Phase 7: BFF Phase 2 - Redis Optimization (Future)
+
+### 7.1 Redis Integration
 
 - [ ] Add Redis client dependency
 - [ ] Create Redis session store implementation
@@ -281,7 +298,7 @@
 - [ ] Add cache fallback to database
 - [ ] Create Redis configuration options
 
-### 6.2 Performance Optimization
+### 7.2 Performance Optimization
 
 - [ ] Implement JWT caching layer
 - [ ] Add cache hit/miss metrics
@@ -289,7 +306,7 @@
 - [ ] Add cache invalidation strategies
 - [ ] Implement cache warming strategies
 
-### 6.3 Monitoring & Observability
+### 7.3 Monitoring & Observability
 
 - [ ] Add cache performance metrics
 - [ ] Implement cache health checks
@@ -326,9 +343,10 @@
 - **Phase 3**: 4-6 hours
 - **Phase 4**: 6-8 hours
 - **Phase 5**: 4-6 hours
-- **Phase 6**: 6-8 hours (future)
+- **Phase 6**: 2-3 hours (code organization)
+- **Phase 7**: 6-8 hours (future)
 
-**Total Estimated Time**: 32-46 hours
+**Total Estimated Time**: 34-49 hours
 
 ## Package vs Project Responsibilities
 
