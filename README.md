@@ -222,6 +222,44 @@ func main() {
     // BFF session endpoints
     bffGroup := router.Group("/api/bff")
     {
+        // Login endpoint - creates session and sets SID cookie
+        bffGroup.POST("/login", func(c *gin.Context) {
+            var loginReq struct {
+                Email    string `json:"email"`
+                Password string `json:"password"`
+            }
+
+            if err := c.ShouldBindJSON(&loginReq); err != nil {
+                c.JSON(400, gin.H{"error": "Invalid request"})
+                return
+            }
+
+            // Your authentication logic here
+            user, err := authenticateUser(loginReq.Email, loginReq.Password)
+            if err != nil {
+                c.JSON(401, gin.H{"error": "Authentication failed"})
+                return
+            }
+
+            // Create session
+            sid, err := sessionService.CreateSession(user, time.Hour*24*30)
+            if err != nil {
+                c.JSON(500, gin.H{"error": "Failed to create session"})
+                return
+            }
+
+            // IMPORTANT: Manually set the SID cookie
+            auth.SetSIDCookie(c, sid, auth.CookieConfig{
+                Name:     "sid",
+                Path:     "/",
+                MaxAge:   86400 * 30,
+                HttpOnly: true,
+                Secure:   true,
+            })
+
+            c.JSON(200, gin.H{"message": "Login successful"})
+        })
+
         // Session exchange for JWT (for microservice calls)
         bffGroup.POST("/exchange", func(c *gin.Context) {
             sid := auth.GetSIDCookie(c, "sid")
@@ -252,6 +290,8 @@ func main() {
         {
             oauthGroup.GET("/:provider", bffService.OAuth.BeginAuthHandler())
             oauthGroup.GET("/:provider/callback", bffService.OAuth.CompleteAuthHandler())
+            // Note: OAuth callbacks return user data but don't set SID cookies
+            // You'll need to create a session and set the cookie in your success handler
         }
     }
 
@@ -287,6 +327,7 @@ func main() {
 - JWT exchange for microservice communication
 - Secure SID cookies with HttpOnly flags
 - Browser never sees JWT tokens
+- **Manual cookie management** - You must set SID cookies after creating sessions
 
 ## Token Handling
 
@@ -364,6 +405,8 @@ type SessionService interface {
 }
 ```
 
+**Important**: After creating a session with `CreateSession()`, you must manually set the SID cookie using `auth.SetSIDCookie()`. The kit does not automatically set cookies - this gives you full control over cookie configuration and timing.
+
 ### UserInfo Struct
 
 ```go
@@ -389,25 +432,29 @@ sid, err := utils.GenerateSecureSID()
 // Returns: "sid_a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
 
 // Cookie utilities
-auth.SetSIDCookie(c, sid, auth.CookieConfig{
-    Name: "sid",
-    Path: "/",
-    MaxAge: 86400,
-    HttpOnly: true,
-    Secure: true,
-})
+// After creating a session, you must manually set the SID cookie:
+sid, err := sessionService.CreateSession(user, time.Hour*24*30)
+if err == nil {
+    auth.SetSIDCookie(c, sid, auth.CookieConfig{
+        Name: "sid",
+        Path: "/",
+        MaxAge: 86400,
+        HttpOnly: true,
+        Secure: true,
+    })
+}
 
 sidValue := auth.GetSIDCookie(c, "sid")
 auth.ClearSIDCookie(c, "sid")
 ```
 
-## Migration from v1.0.0
+## Migration from v1.0.1
 
 See [CHANGELOG.md](CHANGELOG.md) for migration guide from interface-based to callback-based design.
 
 ## Roadmap
 
-### ✅ Completed (v2.0.0)
+### ✅ Completed (v1.0.2)
 
 - [x] OAuth 2.0 authentication (Google, GitHub, Facebook)
 - [x] BFF (Backend-for-Frontend) architecture support
