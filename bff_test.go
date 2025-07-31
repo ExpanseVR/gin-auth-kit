@@ -125,7 +125,7 @@ func TestBFFAuthMiddleware(t *testing.T) {
 		handler(c)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		assert.Contains(t, w.Body.String(), "Invalid session")
+		assert.Contains(t, w.Body.String(), "Session required")
 	})
 
 	t.Run("OptionalSession_NoCookie", func(t *testing.T) {
@@ -236,7 +236,7 @@ func TestCookieUtils(t *testing.T) {
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest("GET", "/test", nil)
 
-		config := CookieConfig{MaxAge: 3600, Path: "/", HttpOnly: true}
+		config := CookieConfig{MaxAge: 3600, Path: "/", HttpOnly: true, Secure: true}
 		SetSecureCookie(c, "secure_cookie", "value", config)
 		
 		cookies := w.Result().Cookies()
@@ -289,14 +289,14 @@ func TestCookieUtils(t *testing.T) {
 		config := CookieConfig{Name: "", MaxAge: 3600}
 		err := ValidateCookieConfig(config)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cookie name is required")
+		assert.Contains(t, err.Error(), "cookie name cannot be empty")
 	})
 
 	t.Run("ValidateCookieConfig_NegativeMaxAge", func(t *testing.T) {
 		config := CookieConfig{Name: "test", MaxAge: -1}
 		err := ValidateCookieConfig(config)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cookie max age must be non-negative")
+		assert.Contains(t, err.Error(), "cookie MaxAge cannot be negative")
 	})
 }
 
