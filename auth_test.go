@@ -269,7 +269,6 @@ func TestAuthOptionsValidation(t *testing.T) {
 		// Should set defaults
 		assert.Equal(t, "gin-auth-kit", opts.JWTRealm)
 		assert.Equal(t, "Lax", opts.SessionSameSite)
-		assert.Equal(t, 12, opts.BcryptCost)
 	})
 
 	t.Run("JWT_Missing_TokenExpireTime", func(t *testing.T) {
@@ -304,7 +303,6 @@ func TestAuthOptionsValidation(t *testing.T) {
 		assert.Equal(t, "user_id", opts.IdentityKey)
 		assert.Equal(t, "gin-auth-kit", opts.JWTRealm)
 		assert.Equal(t, "Lax", opts.SessionSameSite)
-		assert.Equal(t, 12, opts.BcryptCost)
 	})
 }
 

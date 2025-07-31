@@ -8,14 +8,15 @@ Complete authentication toolkit for Gin web framework with JWT, OAuth, and BFF (
 ## Features
 
 - **Multiple Authentication Methods** - JWT, OAuth 2.0, and BFF session-based authentication
-- **OAuth Provider Support** - Google, GitHub, Facebook, and custom providers via Goth
+- **OAuth Provider Support** - Google, GitHub, Facebook, and custom providers via Goth library
 - **BFF Architecture Support** - Session-based authentication with JWT exchange for microservices
+- **Interface-Driven Design** - SessionService interface for custom session storage implementations
 - **Simple Setup** - Just provide callback functions, no complex adapters needed
 - **Hybrid Token Support** - Automatic cookie + header + query parameter JWT handling
 - **Database Agnostic** - Works with any database through simple callback functions
 - **Production Ready** - Proper error handling, security defaults, bcrypt password hashing
-- **Zero Dependencies** - No coupling to GORM, Zerolog, or any specific libraries
-- **Easy Testing** - Mock callback functions instead of complex interfaces
+- **Easy Testing** - Mock callback functions and interfaces instead of complex adapters
+- **Secure Defaults** - HttpOnly cookies, SameSite protection, secure session management
 
 ## Installation
 
@@ -51,7 +52,6 @@ func main() {
         SessionDomain:    ".yourapp.com",
         SessionSecure:    true,
         SessionSameSite:  "Lax",
-        BcryptCost:       12,
 
         // OAuth Configuration (Optional)
         OAuth: &auth.OAuthConfig{
@@ -112,23 +112,23 @@ func main() {
     // Traditional auth endpoints
     authGroup := router.Group("/api/auth")
     {
-        authGroup.POST("/login", authService.LoginHandler())
-        authGroup.POST("/refresh", authService.RefreshHandler())
-        authGroup.POST("/logout", authService.LogoutHandler())
+        authGroup.POST("/login", authService.JWT.Middleware.LoginHandler())
+        authGroup.POST("/refresh", authService.JWT.Middleware.RefreshHandler())
+        authGroup.POST("/logout", authService.JWT.Middleware.LogoutHandler())
     }
 
     // OAuth endpoints (if configured)
-    if authService.GetOAuthService() != nil {
+    if authService.OAuth != nil {
         oauthGroup := router.Group("/auth/oauth")
         {
-            oauthGroup.GET("/:provider", authService.GetOAuthService().BeginAuthHandler())
-            oauthGroup.GET("/:provider/callback", authService.GetOAuthService().CompleteAuthHandler())
+            oauthGroup.GET("/:provider", authService.OAuth.BeginAuthHandler())
+            oauthGroup.GET("/:provider/callback", authService.OAuth.CompleteAuthHandler())
         }
     }
 
     // Protected routes
     protected := router.Group("/api/protected")
-    protected.Use(authService.MiddlewareFunc())
+    protected.Use(authService.JWT.Middleware.MiddlewareFunc())
     {
         protected.GET("/profile", getProfile)
         protected.POST("/update", updateProfile)
@@ -150,6 +150,9 @@ import (
 )
 
 func main() {
+    // Implement your own SessionService
+    sessionService := &MySessionService{} // Your implementation
+
     opts := &auth.BFFAuthOptions{
         // Session configuration
         SessionSecret: "your-session-secret",
@@ -164,6 +167,9 @@ func main() {
         // Cookie configuration
         SIDCookieName: "sid",
         SIDCookiePath: "/",
+
+        // Session service (you must provide this)
+        SessionService: sessionService,
 
         // User callbacks
         FindUserByEmail: func(email string) (auth.UserInfo, error) {
@@ -224,7 +230,7 @@ func main() {
                 return
             }
 
-            jwt, err := bffService.GetJWTExchangeService().ExchangeSessionForJWT(sid)
+            jwt, err := bffService.BFF.Exchange.ExchangeSessionForJWT(sid)
             if err != nil {
                 c.JSON(401, gin.H{"error": "Session exchange failed"})
                 return
@@ -234,24 +240,24 @@ func main() {
         })
 
         // Session validation
-        bffGroup.GET("/validate", bffService.GetBFFAuthMiddleware().RequireSession(), func(c *gin.Context) {
+        bffGroup.GET("/validate", bffService.BFF.Middleware.RequireSession(), func(c *gin.Context) {
             user, _ := c.Get("user")
             c.JSON(200, gin.H{"user": user})
         })
     }
 
     // OAuth endpoints (if configured)
-    if bffService.GetOAuthService() != nil {
+    if bffService.OAuth != nil {
         oauthGroup := router.Group("/auth/oauth")
         {
-            oauthGroup.GET("/:provider", bffService.GetOAuthService().BeginAuthHandler())
-            oauthGroup.GET("/:provider/callback", bffService.GetOAuthService().CompleteAuthHandler())
+            oauthGroup.GET("/:provider", bffService.OAuth.BeginAuthHandler())
+            oauthGroup.GET("/:provider/callback", bffService.OAuth.CompleteAuthHandler())
         }
     }
 
     // Protected routes using BFF middleware
     protected := router.Group("/api/protected")
-    protected.Use(bffService.GetBFFAuthMiddleware().RequireSession())
+    protected.Use(bffService.BFF.Middleware.RequireSession())
     {
         protected.GET("/profile", getProfile)
         protected.POST("/update", updateProfile)
@@ -309,7 +315,7 @@ fetch("/api/protected/profile", {
 window.open(`/api/export?token=${token}`);
 ```
 
-**Token Lookup Priority**: Header → Cookie → Query Parameter
+**Token Lookup Priority**: Header → Query Parameter → Cookie
 
 ## Configuration
 
@@ -335,12 +341,26 @@ type BFFAuthOptions struct {
     SIDCookieName string
     SIDCookiePath string
 
+    // Session service (you must provide this)
+    SessionService SessionService
+
     // User callbacks
     FindUserByEmail FindUserByEmailFunc
     FindUserByID    FindUserByIDFunc
 
     // OAuth configuration (optional)
     OAuth *OAuthConfig
+}
+```
+
+### SessionService Interface (Required for BFF)
+
+```go
+type SessionService interface {
+    CreateSession(user UserInfo, expiry time.Duration) (string, error)
+    GetSession(sid string) (UserInfo, error)
+    DeleteSession(sid string) error
+    ValidateSession(sid string) (UserInfo, error)
 }
 ```
 
@@ -355,108 +375,30 @@ type UserInfo struct {
 }
 ```
 
-## API Endpoints
-
-### Traditional JWT Endpoints
-
-#### POST `/api/auth/login`
-
-```json
-{
-  "email": "user@example.com",
-  "password": "password123"
-}
-```
-
-**Response:**
-
-```json
-{
-  "code": 200,
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "expire": "2024-01-01T12:00:00Z"
-}
-```
-
-#### POST `/api/auth/refresh`
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
-
-#### POST `/api/auth/logout`
-
-Invalidates the current session.
-
-### OAuth Endpoints
-
-#### GET `/auth/oauth/:provider`
-
-Initiates OAuth flow for the specified provider (google, github, facebook, etc.).
-
-#### GET `/auth/oauth/:provider/callback`
-
-Handles OAuth callback and creates user session.
-
-### BFF Endpoints
-
-#### POST `/api/bff/exchange`
-
-Exchanges session ID for JWT token (for microservice calls).
-
-#### GET `/api/bff/validate`
-
-Validates current session and returns user information.
-
-## Testing
-
-```go
-func TestAuth(t *testing.T) {
-    mockUsers := map[string]auth.UserInfo{
-        "test@example.com": {
-            ID: 1, Email: "test@example.com",
-            Role: "user", PasswordHash: "hashedpw",
-        },
-    }
-
-    opts := &auth.AuthOptions{
-        JWTSecret: "test-secret",
-        TokenExpireTime: time.Hour,
-
-        FindUserByEmail: func(email string) (auth.UserInfo, error) {
-            if user, exists := mockUsers[email]; exists {
-                return user, nil
-            }
-            return auth.UserInfo{}, errors.New("user not found")
-        },
-
-        FindUserByID: func(id uint) (auth.UserInfo, error) {
-            for _, user := range mockUsers {
-                if user.ID == id {
-                    return user, nil
-                }
-            }
-            return auth.UserInfo{}, errors.New("user not found")
-        },
-    }
-
-    authService, err := auth.NewAuthService(opts)
-    assert.NoError(t, err)
-}
-```
-
-## Password Utilities
+## Utility Functions
 
 ```go
 import "github.com/ExpanseVR/gin-auth-kit/utils"
 
-// Hash a password
+// Password utilities
 hashedPassword, err := utils.HashPassword("password123", 12)
-
-// Verify a password
 err := utils.VerifyPassword(hashedPassword, "password123")
+
+// Session ID generation
+sid, err := utils.GenerateSecureSID()
+// Returns: "sid_a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+
+// Cookie utilities
+auth.SetSIDCookie(c, sid, auth.CookieConfig{
+    Name: "sid",
+    Path: "/",
+    MaxAge: 86400,
+    HttpOnly: true,
+    Secure: true,
+})
+
+sidValue := auth.GetSIDCookie(c, "sid")
+auth.ClearSIDCookie(c, "sid")
 ```
 
 ## Migration from v1.0.0
@@ -465,12 +407,22 @@ See [CHANGELOG.md](CHANGELOG.md) for migration guide from interface-based to cal
 
 ## Roadmap
 
+### ✅ Completed (v2.0.0)
+
+- [x] OAuth 2.0 authentication (Google, GitHub, Facebook)
+- [x] BFF (Backend-for-Frontend) architecture support
+- [x] Session-based authentication with JWT exchange
+- [x] Comprehensive configuration validation
+- [x] Full test coverage for all authentication methods
+- [x] Secure cookie management utilities
+- [x] Interface-driven SessionService design
+
 ### 🔄 In Progress
 
 - [ ] Route integration helpers
 - [ ] Advanced error handling integration
 - [ ] Configuration examples and templates
-- [ ] Integration tests and documentation
+- [ ] Code organization refactoring (domain-based file structure)
 
 ### 🚀 Planned (Future Versions)
 

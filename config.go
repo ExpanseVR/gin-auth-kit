@@ -73,9 +73,6 @@ type AuthOptions struct {
 	// OAuth Configuration
 	OAuth *OAuthConfig
 
-	// Security Settings
-	BcryptCost int
-
 	// Callback Functions
 	FindUserByEmail FindUserByEmailFunc
 	FindUserByID    FindUserByIDFunc

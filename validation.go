@@ -165,10 +165,6 @@ func (opts *AuthOptions) ValidateAuthOptions() error {
 		opts.SessionSameSite = "Lax" // Set default
 	}
 
-	if opts.BcryptCost <= 0 {
-		opts.BcryptCost = 12 // Set default
-	}
-
 	// Validate OAuth configuration if provided
 	if opts.OAuth != nil {
 		if err := opts.OAuth.ValidateOAuthConfig(); err != nil {
