@@ -12,6 +12,7 @@ Complete authentication toolkit for Gin web framework with JWT, OAuth, and BFF (
 - [Which Authentication Method Should I Choose?](#-which-authentication-method-should-i-choose)
 - [Common Configuration](#common-configuration)
 - [Quick Start](#quick-start)
+- [Examples](#examples)
 - [Helper Functions](#helper-functions)
 - [Advanced Configuration](#advanced-configuration)
 - [Production Deployment](#production-deployment)
@@ -437,8 +438,28 @@ curl -X POST http://localhost:8080/exchange -b cookies.txt
 
 ## Next Steps
 
+- **Complete Examples**: See [Examples](#examples)
 - **Helper Functions**: See [Helper Functions](#helper-functions)
 - **Production Setup**: See [Advanced Configuration](#advanced-configuration)
+
+## Examples
+
+### BFF Authentication Example
+
+**Location**: `examples/bff_example/`
+
+Complete BFF authentication with session-based security and JWT exchange.
+
+**Quick Test**:
+
+```bash
+cd examples/bff_example
+go run main.go                    # Start server
+./test.sh                         # Run automated tests
+rm -f cookies.txt                 # Clean up test cookies
+```
+
+> **Note**: For production, use environment variables and proper session storage (Redis/Database).
 
 ## Helper Functions
 
