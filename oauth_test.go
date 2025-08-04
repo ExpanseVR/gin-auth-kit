@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/markbates/goth"
+	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -91,7 +92,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateProvider("test-provider", tt.provider)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -105,11 +106,11 @@ func TestOAuthProviderValidation(t *testing.T) {
 // TestCreateGothProvider tests Goth provider creation from OAuth configuration
 func TestCreateGothProvider(t *testing.T) {
 	tests := []struct {
-		name        string
-		provider    OAuthProvider
+		name         string
+		provider     OAuthProvider
 		providerName string
-		expectError bool
-		errorMsg    string
+		expectError  bool
+		errorMsg     string
 	}{
 		{
 			name: "Valid Google Provider",
@@ -171,7 +172,7 @@ func TestCreateGothProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gothProvider, err := createGothProvider(tt.providerName, tt.provider)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -179,7 +180,7 @@ func TestCreateGothProvider(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, gothProvider)
-				
+
 				// Verify it's the correct provider type
 				switch tt.providerName {
 				case "google":
@@ -240,12 +241,12 @@ func TestOAuthServiceInitialization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			oauthService := NewOAuthService(tt.config)
-			
+
 			if tt.expectError {
 				assert.Nil(t, oauthService)
 			} else {
 				assert.NotNil(t, oauthService)
-				
+
 				// Test that the service is properly initialized
 				assert.NotNil(t, oauthService.Providers)
 			}
@@ -317,7 +318,7 @@ func TestOAuthServiceInterface(t *testing.T) {
 		Email:  "test@example.com",
 		Name:   "Test User",
 	}
-	
+
 	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
@@ -363,10 +364,10 @@ func TestOAuthErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			oauthService := NewOAuthService(tt.config)
-			
+
 			// Should not error, but may have no providers
 			assert.NotNil(t, oauthService)
-			
+
 			// Try to get a provider that should not exist
 			provider, err := oauthService.GetProvider("google")
 			assert.Error(t, err)
@@ -374,7 +375,7 @@ func TestOAuthErrorHandling(t *testing.T) {
 			assert.Equal(t, ErrProviderNotFound, err)
 		})
 	}
-} 
+}
 
 // TestUserMapping tests the MapGothUserToUserInfo functionality
 func TestUserMapping(t *testing.T) {
@@ -387,9 +388,9 @@ func TestUserMapping(t *testing.T) {
 				Scopes:       []string{"email", "profile"},
 			},
 		},
-		BaseURL:    "http://localhost:8080",
-		SuccessURL: "/dashboard",
-		FailureURL: "/login",
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
 		FindUserByEmail: mockFindUserByEmail,
 		FindUserByID:    mockFindUserByID,
 	}
@@ -398,10 +399,10 @@ func TestUserMapping(t *testing.T) {
 	require.NotNil(t, oauthService)
 
 	tests := []struct {
-		name        string
-		gothUser    goth.User
-		expectError bool
-		errorMsg    string
+		name         string
+		gothUser     goth.User
+		expectError  bool
+		errorMsg     string
 		expectedUser UserInfo
 	}{
 		{
@@ -483,7 +484,7 @@ func TestUserMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			userInfo, err := oauthService.MapGothUserToUserInfo(tt.gothUser)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -528,4 +529,44 @@ func TestUserMappingWithoutCallbacks(t *testing.T) {
 	assert.Equal(t, "test@example.com", userInfo.Email)
 	assert.Equal(t, "user", userInfo.Role)
 	assert.Equal(t, uint(123), userInfo.ID)
-} 
+}
+
+func TestProviderRegistrationWithoutOverwriting(t *testing.T) {
+	// Create an empty OAuth service
+	service := &OAuthService{
+		Providers: make(map[string]goth.Provider),
+		config:    nil,
+	}
+
+	// Create test providers
+	googleProvider := google.New("google-client-id", "google-secret", "http://localhost:8080/auth/google/callback")
+	githubProvider := github.New("github-client-id", "github-secret", "http://localhost:8080/auth/github/callback")
+
+	// Register first provider
+	service.RegisterProvider("google", googleProvider)
+
+	// Verify first provider is registered
+	provider, err := service.GetProvider("google")
+	assert.NoError(t, err)
+	assert.NotNil(t, provider)
+	assert.IsType(t, &google.Provider{}, provider)
+
+	// Register second provider
+	service.RegisterProvider("github", githubProvider)
+
+	// Verify both providers are still available
+	googleProvider2, err := service.GetProvider("google")
+	assert.NoError(t, err)
+	assert.NotNil(t, googleProvider2)
+	assert.IsType(t, &google.Provider{}, googleProvider2)
+
+	githubProvider2, err := service.GetProvider("github")
+	assert.NoError(t, err)
+	assert.NotNil(t, githubProvider2)
+	assert.IsType(t, &github.Provider{}, githubProvider2)
+
+	// Verify the service has both providers in its map
+	assert.Equal(t, 2, len(service.Providers))
+	assert.Contains(t, service.Providers, "google")
+	assert.Contains(t, service.Providers, "github")
+}

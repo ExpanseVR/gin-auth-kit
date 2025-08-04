@@ -14,14 +14,15 @@ import (
 	"github.com/markbates/goth/providers/facebook"
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
+	"github.com/rs/zerolog/log"
 )
 
 var (
-	ErrProviderNotFound = errors.New("oauth provider not found")
-	ErrNotImplemented   = errors.New("oauth feature not implemented yet")
-	ErrInvalidProvider  = errors.New("invalid oauth provider configuration")
+	ErrProviderNotFound    = errors.New("oauth provider not found")
+	ErrNotImplemented      = errors.New("oauth feature not implemented yet")
+	ErrInvalidProvider     = errors.New("invalid oauth provider configuration")
 	ErrUnsupportedProvider = errors.New("unsupported oauth provider")
-	ErrUserNotFound     = errors.New("user not found")
+	ErrUserNotFound        = errors.New("user not found")
 )
 
 func validateProvider(name string, provider OAuthProvider) error {
@@ -34,12 +35,12 @@ func validateProvider(name string, provider OAuthProvider) error {
 	if provider.RedirectURL == "" {
 		return fmt.Errorf("%s: RedirectURL is required", name)
 	}
-	
+
 	// Validate redirect URL format
 	if _, err := url.Parse(provider.RedirectURL); err != nil {
 		return fmt.Errorf("%s: RedirectURL must be a valid URL: %v", name, err)
 	}
-	
+
 	if len(provider.Scopes) > 0 {
 		for i, scope := range provider.Scopes {
 			if strings.TrimSpace(scope) == "" {
@@ -47,7 +48,7 @@ func validateProvider(name string, provider OAuthProvider) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -55,7 +56,7 @@ func createGothProvider(name string, provider OAuthProvider) (goth.Provider, err
 	if err := validateProvider(name, provider); err != nil {
 		return nil, err
 	}
-	
+
 	switch strings.ToLower(name) {
 	case "google":
 		return google.New(provider.ClientID, provider.ClientSecret, provider.RedirectURL, provider.Scopes...), nil
@@ -77,40 +78,55 @@ func NewOAuthService(config *OAuthConfig) *OAuthService {
 	if config == nil {
 		return nil
 	}
-	
+
 	service := &OAuthService{
 		Providers: make(map[string]goth.Provider),
 		config:    config,
 	}
-	
+
 	// Initialize providers from configuration
 	for name, providerConfig := range config.Providers {
 		provider, err := createGothProvider(name, providerConfig)
 		if err != nil {
 			// Log the error but continue with other providers
-			fmt.Printf("Warning: Failed to initialize OAuth provider '%s': %v\n", name, err)
+			log.Warn().Err(err).Str("provider", name).Msg("Failed to initialize OAuth provider")
 			continue
 		}
 		service.Providers[name] = provider
 	}
-	
+
+	// Register all providers with goth at once to avoid overwriting
+	if len(service.Providers) > 0 {
+		providers := make([]goth.Provider, 0, len(service.Providers))
+		for _, provider := range service.Providers {
+			providers = append(providers, provider)
+		}
+		goth.UseProviders(providers...)
+	}
+
 	return service
 }
 
-func (o *OAuthService) RegisterProvider(name string, provider goth.Provider) {
-	o.Providers[name] = provider
-	goth.UseProviders(provider)
+func (auth *OAuthService) RegisterProvider(name string, provider goth.Provider) {
+	auth.Providers[name] = provider
+
+	// Re-register all providers with goth to include the new one
+	providers := make([]goth.Provider, 0, len(auth.Providers))
+	for _, p := range auth.Providers {
+		providers = append(providers, p)
+	}
+	goth.UseProviders(providers...)
 }
 
-func (o *OAuthService) GetProvider(name string) (goth.Provider, error) {
-	provider, exists := o.Providers[name]
+func (auth *OAuthService) GetProvider(name string) (goth.Provider, error) {
+	provider, exists := auth.Providers[name]
 	if !exists {
 		return nil, ErrProviderNotFound
 	}
 	return provider, nil
 }
 
-func (o *OAuthService) BeginAuthHandler() gin.HandlerFunc {
+func (auth *OAuthService) BeginAuthHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		providerName := c.Param("provider")
 		if providerName == "" {
@@ -118,7 +134,7 @@ func (o *OAuthService) BeginAuthHandler() gin.HandlerFunc {
 			return
 		}
 
-		_, err := o.GetProvider(providerName)
+		_, err := auth.GetProvider(providerName)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 			return
@@ -129,7 +145,7 @@ func (o *OAuthService) BeginAuthHandler() gin.HandlerFunc {
 }
 
 // CompleteAuthHandler handles the OAuth callback
-func (o *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
+func (auth *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		providerName := c.Param("provider")
 		if providerName == "" {
@@ -137,7 +153,7 @@ func (o *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 			return
 		}
 
-		_, err := o.GetProvider(providerName)
+		_, err := auth.GetProvider(providerName)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 			return
@@ -149,7 +165,7 @@ func (o *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 			return
 		}
 
-		userInfo, err := o.MapGothUserToUserInfo(gothUser)
+		userInfo, err := auth.MapGothUserToUserInfo(gothUser)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "User mapping failed"})
 			return
@@ -160,13 +176,13 @@ func (o *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 }
 
 // MapGothUserToUserInfo maps a Goth user to our UserInfo structure
-func (o *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error) {
+func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error) {
 	if gothUser.Email == "" {
 		return UserInfo{}, errors.New("email is required")
 	}
 
-	if o.config != nil && o.config.FindUserByEmail != nil {
-		existingUser, err := o.config.FindUserByEmail(gothUser.Email)
+	if auth.config != nil && auth.config.FindUserByEmail != nil {
+		existingUser, err := auth.config.FindUserByEmail(gothUser.Email)
 		if err == nil {
 			return existingUser, nil
 		}
@@ -184,4 +200,4 @@ func (o *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, erro
 	}
 
 	return userInfo, nil
-} 
+}
