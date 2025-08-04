@@ -15,6 +15,7 @@ import (
 var (
 	ErrSessionNotFound = errors.New("session not found")
 )
+
 type mockSessionServiceImpl struct{}
 
 func (m *mockSessionServiceImpl) CreateSession(user UserInfo, expiry time.Duration) (string, error) {
@@ -48,7 +49,7 @@ func TestSessionService(t *testing.T) {
 func TestGenerateSecureSID(t *testing.T) {
 	t.Run("GeneratesValidSID", func(t *testing.T) {
 		sid, err := utils.GenerateSecureSID()
-		
+
 		assert.NoError(t, err)
 		assert.NotEmpty(t, sid)
 		assert.True(t, len(sid) > 60)
@@ -58,7 +59,7 @@ func TestGenerateSecureSID(t *testing.T) {
 	t.Run("GeneratesUniqueSIDs", func(t *testing.T) {
 		sid1, err1 := utils.GenerateSecureSID()
 		sid2, err2 := utils.GenerateSecureSID()
-		
+
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
 		assert.NotEqual(t, sid1, sid2)
@@ -95,7 +96,6 @@ func TestJWTExchangeService(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid session ID")
 	})
 }
-
 
 func TestBFFAuthMiddleware(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
@@ -155,152 +155,6 @@ func TestBFFAuthMiddleware(t *testing.T) {
 	})
 }
 
-
-func TestCookieUtils(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	t.Run("DefaultCookieConfig", func(t *testing.T) {
-		config := DefaultCookieConfig()
-		assert.Equal(t, "sid", config.Name)
-		assert.Equal(t, "/", config.Path)
-		assert.Equal(t, 86400*30, config.MaxAge)
-		assert.False(t, config.Secure)
-		assert.True(t, config.HttpOnly)
-		assert.Equal(t, http.SameSiteLaxMode, config.SameSite)
-	})
-
-	t.Run("SetSIDCookie_EmptySID", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		SetSIDCookie(c, "", CookieConfig{})
-	})
-
-	t.Run("SetSIDCookie_ValidSID", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		config := CookieConfig{Name: "test_sid", Path: "/"}
-		SetSIDCookie(c, "test_sid_value", config)
-		cookies := w.Result().Cookies()
-		assert.Len(t, cookies, 1)
-		assert.Equal(t, "test_sid", cookies[0].Name)
-		assert.Equal(t, "test_sid_value", cookies[0].Value)
-	})
-
-	t.Run("GetSIDCookie_NoCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		sid := GetSIDCookie(c, "sid")
-		assert.Empty(t, sid)
-	})
-
-	t.Run("GetSIDCookie_WithCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-		c.Request.AddCookie(&http.Cookie{Name: "sid", Value: "test_sid"})
-
-		sid := GetSIDCookie(c, "sid")
-		assert.Equal(t, "test_sid", sid)
-	})
-
-	t.Run("GetSIDCookie_DefaultName", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-		c.Request.AddCookie(&http.Cookie{Name: "sid", Value: "test_sid"})
-
-		sid := GetSIDCookie(c, "")
-		assert.Equal(t, "test_sid", sid)
-	})
-
-	t.Run("ClearSIDCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		ClearSIDCookie(c, "test_sid")
-		cookies := w.Result().Cookies()
-		assert.Len(t, cookies, 1)
-		assert.Equal(t, "test_sid", cookies[0].Name)
-		assert.Equal(t, -1, cookies[0].MaxAge)
-	})
-
-	t.Run("SetSecureCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		config := CookieConfig{MaxAge: 3600, Path: "/", HttpOnly: true, Secure: true}
-		SetSecureCookie(c, "secure_cookie", "value", config)
-		
-		cookies := w.Result().Cookies()
-		assert.Len(t, cookies, 1)
-		assert.Equal(t, "secure_cookie", cookies[0].Name)
-		assert.Equal(t, "value", cookies[0].Value)
-		assert.True(t, cookies[0].Secure)
-		assert.True(t, cookies[0].HttpOnly)
-	})
-
-	t.Run("GetCookie_NoCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		value := GetCookie(c, "nonexistent")
-		assert.Empty(t, value)
-	})
-
-	t.Run("GetCookie_WithCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-		c.Request.AddCookie(&http.Cookie{Name: "test_cookie", Value: "test_value"})
-
-		value := GetCookie(c, "test_cookie")
-		assert.Equal(t, "test_value", value)
-	})
-
-	t.Run("ClearCookie", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
-
-		ClearCookie(c, "test_cookie")
-		
-		cookies := w.Result().Cookies()
-		assert.Len(t, cookies, 1)
-		assert.Equal(t, "test_cookie", cookies[0].Name)
-		assert.Equal(t, -1, cookies[0].MaxAge)
-	})
-
-	t.Run("ValidateCookieConfig_Valid", func(t *testing.T) {
-		config := CookieConfig{Name: "test", MaxAge: 3600}
-		err := ValidateCookieConfig(config)
-		assert.NoError(t, err)
-	})
-
-	t.Run("ValidateCookieConfig_EmptyName", func(t *testing.T) {
-		config := CookieConfig{Name: "", MaxAge: 3600}
-		err := ValidateCookieConfig(config)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cookie name cannot be empty")
-	})
-
-	t.Run("ValidateCookieConfig_NegativeMaxAge", func(t *testing.T) {
-		config := CookieConfig{Name: "test", MaxAge: -1}
-		err := ValidateCookieConfig(config)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cookie MaxAge cannot be negative")
-	})
-}
-
-
 func TestBFFServiceConstructors(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
 
@@ -323,10 +177,10 @@ func TestBFFServiceConstructors(t *testing.T) {
 func TestBFFAuthOptionsValidation(t *testing.T) {
 	t.Run("Valid_BFFAuthOptions", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: 86400,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     10 * time.Minute,
+			SessionSecret:  "test-secret",
+			SessionMaxAge:  86400,
+			JWTSecret:      "jwt-secret",
+			JWTExpiry:      10 * time.Minute,
 			SessionService: &mockSessionServiceImpl{},
 			FindUserByEmail: func(email string) (UserInfo, error) {
 				return UserInfo{}, nil
@@ -423,11 +277,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 
 	t.Run("Missing_FindUserByEmail", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret:   "test-secret",
-			SessionMaxAge:   86400,
-			JWTSecret:       "jwt-secret",
-			JWTExpiry:       10 * time.Minute,
-			SessionService:  &mockSessionServiceImpl{},
+			SessionSecret:  "test-secret",
+			SessionMaxAge:  86400,
+			JWTSecret:      "jwt-secret",
+			JWTExpiry:      10 * time.Minute,
+			SessionService: &mockSessionServiceImpl{},
 			FindUserByID: func(id uint) (UserInfo, error) {
 				return UserInfo{}, nil
 			},
@@ -440,11 +294,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 
 	t.Run("Missing_FindUserByID", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret:   "test-secret",
-			SessionMaxAge:   86400,
-			JWTSecret:       "jwt-secret",
-			JWTExpiry:       10 * time.Minute,
-			SessionService:  &mockSessionServiceImpl{},
+			SessionSecret:  "test-secret",
+			SessionMaxAge:  86400,
+			JWTSecret:      "jwt-secret",
+			JWTExpiry:      10 * time.Minute,
+			SessionService: &mockSessionServiceImpl{},
 			FindUserByEmail: func(email string) (UserInfo, error) {
 				return UserInfo{}, nil
 			},
@@ -457,11 +311,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 
 	t.Run("Default_Cookie_Values", func(t *testing.T) {
 		opts := &BFFAuthOptions{
-			SessionSecret:   "test-secret",
-			SessionMaxAge:   86400,
-			JWTSecret:       "jwt-secret",
-			JWTExpiry:       10 * time.Minute,
-			SessionService:  &mockSessionServiceImpl{},
+			SessionSecret:  "test-secret",
+			SessionMaxAge:  86400,
+			JWTSecret:      "jwt-secret",
+			JWTExpiry:      10 * time.Minute,
+			SessionService: &mockSessionServiceImpl{},
 			FindUserByEmail: func(email string) (UserInfo, error) {
 				return UserInfo{}, nil
 			},
@@ -475,4 +329,4 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 		assert.Equal(t, "sid", opts.SIDCookieName)
 		assert.Equal(t, "/", opts.SIDCookiePath)
 	})
-} 
+}

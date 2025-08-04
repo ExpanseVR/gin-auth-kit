@@ -25,12 +25,12 @@ func PayloadFunc(data interface{}) jwt.MapClaims {
 func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
 	return func(c *gin.Context) interface{} {
 		claims := jwt.ExtractClaims(c)
-		
+
 		userIDFloat, exists := claims["user_id"]
 		if !exists {
 			return nil
 		}
-		
+
 		userID, ok := userIDFloat.(float64)
 		if !ok {
 			return nil
@@ -38,7 +38,7 @@ func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
 
 		user, err := opts.FindUserByID(uint(userID))
 		if err != nil {
-			return nil 
+			return nil
 		}
 
 		return &user
@@ -50,7 +50,7 @@ func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
 func Authenticator(opts *AuthOptions) func(c *gin.Context) (interface{}, error) {
 	return func(c *gin.Context) (interface{}, error) {
 		var loginRequest struct {
-			Email    string `json:"email" binding:"required"`
+			Email    string `json:"email" binding:"required,email"`
 			Password string `json:"password" binding:"required"`
 		}
 
@@ -87,4 +87,4 @@ func Unauthorized(c *gin.Context, code int, message string) {
 		"code":    code,
 		"message": message,
 	})
-} 
+}
