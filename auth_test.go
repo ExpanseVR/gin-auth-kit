@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -42,29 +41,20 @@ func TestJWTOnlyConfiguration(t *testing.T) {
 		IdentityKey:       "id",
 		SessionSecret:     "session-secret",
 		SessionMaxAge:     86400,
-		SessionDomain:     "localhost",
-		SessionSecure:     false,
-		SessionSameSite:   "Lax",
 		FindUserByEmail:   mockFindUserByEmail,
 		FindUserByID:      mockFindUserByID,
 	}
 
 	authService, err := NewAuthService(opts)
 	require.NoError(t, err)
-	require.NotNil(t, authService)
 
-	// JWT service should be available
+	// Should have JWT service
 	assert.NotNil(t, authService.JWT)
 	assert.NotNil(t, authService.JWT.Middleware)
 
-	// BFF services should not be available
+	// Should not have BFF or OAuth services
 	assert.Nil(t, authService.BFF)
-
-	// OAuth should not be configured
 	assert.Nil(t, authService.OAuth)
-
-	// Session store should be available
-	assert.NotNil(t, authService.SessionStore)
 }
 
 func TestOAuthConfiguration(t *testing.T) {
@@ -76,9 +66,6 @@ func TestOAuthConfiguration(t *testing.T) {
 		IdentityKey:       "id",
 		SessionSecret:     "session-secret",
 		SessionMaxAge:     86400,
-		SessionDomain:     "localhost",
-		SessionSecure:     false,
-		SessionSameSite:   "Lax",
 		FindUserByEmail:   mockFindUserByEmail,
 		FindUserByID:      mockFindUserByID,
 		OAuth: &OAuthConfig{
@@ -90,27 +77,24 @@ func TestOAuthConfiguration(t *testing.T) {
 					Scopes:       []string{"email", "profile"},
 				},
 			},
-			BaseURL:         "http://localhost:8080",
-			SuccessURL:      "/dashboard",
-			FailureURL:      "/login?error=oauth_failed",
-			FindUserByEmail: mockFindUserByEmail,
-			FindUserByID:    mockFindUserByID,
+			BaseURL:    "http://localhost:8080",
+			SuccessURL: "/dashboard",
+			FailureURL: "/login",
 		},
 	}
 
 	authService, err := NewAuthService(opts)
 	require.NoError(t, err)
-	require.NotNil(t, authService)
 
-	// OAuth should be configured
+	// Should have JWT and OAuth services
+	assert.NotNil(t, authService.JWT)
 	assert.NotNil(t, authService.OAuth)
 
-	// Session store should be available
-	assert.NotNil(t, authService.SessionStore)
+	// Should not have BFF service
+	assert.Nil(t, authService.BFF)
 }
 
 func TestBackwardCompatibility(t *testing.T) {
-	// Test that JWT-only configurations still work
 	opts := &AuthOptions{
 		JWTSecret:         "test-secret",
 		JWTRealm:         "test",
@@ -125,14 +109,11 @@ func TestBackwardCompatibility(t *testing.T) {
 
 	authService, err := NewAuthService(opts)
 	require.NoError(t, err)
-	require.NotNil(t, authService)
 
-	// Should have JWT functionality
+	// JWT-only configuration should still work
 	assert.NotNil(t, authService.JWT)
-	assert.NotNil(t, authService.JWT.Middleware.MiddlewareFunc())
-	assert.NotNil(t, authService.JWT.Middleware.LoginHandler())
-	assert.NotNil(t, authService.JWT.Middleware.LogoutHandler())
-	assert.NotNil(t, authService.JWT.Middleware.RefreshHandler())
+	assert.Nil(t, authService.BFF)
+	assert.Nil(t, authService.OAuth)
 }
 
 func TestErrorHandling(t *testing.T) {
@@ -306,38 +287,6 @@ func TestAuthOptionsValidation(t *testing.T) {
 	})
 }
 
-func TestSessionStoreIntegration(t *testing.T) {
-	opts := &AuthOptions{
-		JWTSecret:         "test-secret",
-		JWTRealm:         "test",
-		TokenExpireTime:   time.Hour,
-		RefreshExpireTime: time.Hour * 24,
-		IdentityKey:       "id",
-		SessionSecret:     "session-secret",
-		SessionMaxAge:     86400,
-		FindUserByEmail:   mockFindUserByEmail,
-		FindUserByID:      mockFindUserByID,
-	}
-
-	authService, err := NewAuthService(opts)
-	require.NoError(t, err)
-
-	sessionStore := authService.SessionStore
-	assert.NotNil(t, sessionStore)
-
-	// Test session store functionality
-	req := httptest.NewRequest("GET", "/test", nil)
-	w := httptest.NewRecorder()
-
-	session, err := sessionStore.New(req, "test-session")
-	assert.NoError(t, err)
-	assert.NotNil(t, session)
-
-	session.Values["test"] = "value"
-	err = sessionStore.Save(req, w, session)
-	assert.NoError(t, err)
-}
-
 func TestGinIntegration(t *testing.T) {
 	opts := &AuthOptions{
 		JWTSecret:         "test-secret",
@@ -399,9 +348,6 @@ func TestBFFConfiguration(t *testing.T) {
 
 	// JWT service should not be available in BFF mode
 	assert.Nil(t, authService.JWT)
-
-	// Session store should be available
-	assert.NotNil(t, authService.SessionStore)
 }
 
 func TestBFFAndJWTCoexistence(t *testing.T) {

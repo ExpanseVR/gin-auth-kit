@@ -2,8 +2,6 @@ package auth
 
 import (
 	"time"
-
-	"github.com/gorilla/sessions"
 )
 
 // OAuthProvider represents configuration for an OAuth provider
@@ -17,7 +15,6 @@ type OAuthProvider struct {
 // OAuthConfig represents the overall OAuth configuration
 type OAuthConfig struct {
 	Providers    map[string]OAuthProvider `json:"providers"`
-	SessionStore sessions.Store           `json:"-"`
 	BaseURL      string                   `json:"base_url"`
 	SuccessURL   string                   `json:"success_url"`
 	FailureURL   string                   `json:"failure_url"`

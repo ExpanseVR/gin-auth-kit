@@ -2,9 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"net/http"
-
-	"github.com/gorilla/sessions"
 )
 
 type JWTService struct {
@@ -19,25 +16,9 @@ type BFFService struct {
 
 // AuthService is the main service that provides authentication functionality
 type AuthService struct {
-	// Core services (always present)
-	SessionStore sessions.Store
-	
-	// Optional services (nil if not configured)
   JWT   *JWTService
   BFF   *BFFService
   OAuth *OAuthService
-}
-
-func createSessionStore(sessionSecret, sessionDomain string, sessionMaxAge int, sessionSecure bool) sessions.Store {
-	sessionStore := sessions.NewCookieStore([]byte(sessionSecret))
-	sessionStore.Options = &sessions.Options{
-		Domain:   sessionDomain,
-		MaxAge:   sessionMaxAge,
-		HttpOnly: true,
-		Secure:   sessionSecure,
-		SameSite: http.SameSiteLaxMode,
-	}
-	return sessionStore
 }
 
 // NewAuthService creates a traditional AuthService (stateless/middleware-based)
@@ -47,8 +28,6 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 	if err := opts.ValidateAuthOptions(); err != nil {
 		return nil, fmt.Errorf("invalid AuthOptions: %w", err)
 	}
-
-	sessionStore := createSessionStore(opts.SessionSecret, opts.SessionDomain, opts.SessionMaxAge, opts.SessionSecure)
 
 	var jwtService *JWTService
 	if opts.JWTSecret != "" {
@@ -75,17 +54,13 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 
 	var oauthService *OAuthService
 	if opts.OAuth != nil {
-		if opts.OAuth.SessionStore == nil {
-			opts.OAuth.SessionStore = sessionStore
-		}
 		oauthService = NewOAuthService(opts.OAuth)
 	}
 
 	return &AuthService{
-		SessionStore: sessionStore,
-		JWT:          jwtService,
-		BFF:          nil,
-		OAuth:        oauthService,
+		JWT:   jwtService,
+		BFF:   nil,
+		OAuth: oauthService,
 	}, nil
 }
 
@@ -96,8 +71,6 @@ func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 	if err := opts.ValidateBFFAuthOptions(); err != nil {
 		return nil, fmt.Errorf("invalid BFF configuration: %w", err)
 	}
-
-	sessionStore := createSessionStore(opts.SessionSecret, opts.SessionDomain, opts.SessionMaxAge, opts.SessionSecure)
 
 	sessionService := opts.SessionService
 	jwtExchangeService := NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
@@ -111,16 +84,12 @@ func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 
 	var oauthService *OAuthService
 	if opts.OAuth != nil {
-		if opts.OAuth.SessionStore == nil {
-			opts.OAuth.SessionStore = sessionStore
-		}
 		oauthService = NewOAuthService(opts.OAuth)
 	}
 
 	return &AuthService{
-		SessionStore: sessionStore,
-		JWT:          nil,
-		BFF:          bffService,
-		OAuth:        oauthService,
+		JWT:   nil,
+		BFF:   bffService,
+		OAuth: oauthService,
 	}, nil
 }

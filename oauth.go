@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/facebook"
@@ -70,9 +69,8 @@ func createGothProvider(name string, provider OAuthProvider) (goth.Provider, err
 }
 
 type OAuthService struct {
-	Providers    map[string]goth.Provider
-	sessionStore sessions.Store
-	config       *OAuthConfig
+	Providers map[string]goth.Provider
+	config    *OAuthConfig
 }
 
 func NewOAuthService(config *OAuthConfig) *OAuthService {
@@ -81,9 +79,8 @@ func NewOAuthService(config *OAuthConfig) *OAuthService {
 	}
 	
 	service := &OAuthService{
-		Providers:    make(map[string]goth.Provider),
-		sessionStore: config.SessionStore,
-		config:       config,
+		Providers: make(map[string]goth.Provider),
+		config:    config,
 	}
 	
 	// Initialize providers from configuration
