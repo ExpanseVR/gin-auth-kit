@@ -3,14 +3,13 @@ package main
 import (
 	"errors"
 	"log"
-	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	auth "github.com/ExpanseVR/gin-auth-kit"
-	"github.com/ExpanseVR/gin-auth-kit/utils"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Simple in-memory session store (use Redis/Database in production)
@@ -19,23 +18,23 @@ type SimpleSessionStore struct {
 	mutex    sync.RWMutex
 }
 
-func (s *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
-	sid, err := utils.GenerateSecureSID()
-	if err != nil {
-		return "", err
+func (store *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
+	sid := "sid_" + time.Now().Format("20060102150405") + "_" + user.Email
+	if len(sid) > 64 {
+		sid = sid[:64]
 	}
 
-	s.mutex.Lock()
-	s.sessions[sid] = user
-	s.mutex.Unlock()
+	store.mutex.Lock()
+	store.sessions[sid] = user
+	store.mutex.Unlock()
 
 	return sid, nil
 }
 
-func (s *SimpleSessionStore) ValidateSession(sid string) (auth.UserInfo, error) {
-	s.mutex.RLock()
-	user, exists := s.sessions[sid]
-	s.mutex.RUnlock()
+func (store *SimpleSessionStore) ValidateSession(sid string) (auth.UserInfo, error) {
+	store.mutex.RLock()
+	user, exists := store.sessions[sid]
+	store.mutex.RUnlock()
 
 	if !exists {
 		return auth.UserInfo{}, errors.New("session not found")
@@ -43,14 +42,14 @@ func (s *SimpleSessionStore) ValidateSession(sid string) (auth.UserInfo, error) 
 	return user, nil
 }
 
-func (s *SimpleSessionStore) GetSession(sid string) (auth.UserInfo, error) {
-	return s.ValidateSession(sid)
+func (store *SimpleSessionStore) GetSession(sid string) (auth.UserInfo, error) {
+	return store.ValidateSession(sid)
 }
 
-func (s *SimpleSessionStore) DeleteSession(sid string) error {
-	s.mutex.Lock()
-	delete(s.sessions, sid)
-	s.mutex.Unlock()
+func (store *SimpleSessionStore) DeleteSession(sid string) error {
+	store.mutex.Lock()
+	delete(store.sessions, sid)
+	store.mutex.Unlock()
 	return nil
 }
 
@@ -68,6 +67,7 @@ func findUserByEmail(email string) (auth.UserInfo, error) {
 }
 
 func findUserByID(id uint) (auth.UserInfo, error) {
+	// In a real application, this would query your database
 	if id == 1 {
 		return auth.UserInfo{
 			ID:           1,
@@ -79,46 +79,51 @@ func findUserByID(id uint) (auth.UserInfo, error) {
 	return auth.UserInfo{}, errors.New("user not found")
 }
 
+func verifyPassword(hashedPassword, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
+
 func loginHandler(bffService *auth.AuthService) gin.HandlerFunc {
-	return func(c *gin.Context) {
+	return func(ctx *gin.Context) {
 		var loginReq struct {
 			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
 
-		if err := c.ShouldBindJSON(&loginReq); err != nil {
-			c.JSON(400, gin.H{"error": "Invalid request"})
+		if err := ctx.ShouldBindJSON(&loginReq); err != nil {
+			ctx.JSON(400, gin.H{"error": "Invalid request"})
 			return
 		}
 
 		user, err := findUserByEmail(loginReq.Email)
 		if err != nil {
-			c.JSON(401, gin.H{"error": "Invalid credentials"})
+			ctx.JSON(401, gin.H{"error": "Invalid credentials"})
 			return
 		}
 
-		if err := utils.VerifyPassword(user.PasswordHash, loginReq.Password); err != nil {
-			c.JSON(401, gin.H{"error": "Invalid credentials"})
+		if err := verifyPassword(user.PasswordHash, loginReq.Password); err != nil {
+			ctx.JSON(401, gin.H{"error": "Invalid credentials"})
 			return
 		}
 
 		sessionStore := bffService.BFF.Sessions
 		sid, err := sessionStore.CreateSession(user, 24*time.Hour)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Session creation failed"})
+			ctx.JSON(500, gin.H{"error": "Session creation failed"})
 			return
 		}
 
-		auth.SetSIDCookie(c, sid, auth.CookieConfig{
-			Name:     "sid",
-			Path:     "/",
-			MaxAge:   86400,
-			HttpOnly: true,
-			Secure:   false, // Set true in production with HTTPS
-			SameSite: http.SameSiteLaxMode,
-		})
+		ctx.SetCookie(
+			"sid",           // name
+			sid,             // value
+			86400,           // max age (24 hours)
+			"/",             // path
+			"",              // domain
+			false,           // secure (set true in production with HTTPS)
+			true,            // httpOnly
+		)
 
-		c.JSON(200, gin.H{
+		ctx.JSON(200, gin.H{
 			"message": "Login successful",
 			"user": gin.H{
 				"id":    user.ID,
@@ -130,50 +135,57 @@ func loginHandler(bffService *auth.AuthService) gin.HandlerFunc {
 }
 
 func logoutHandler(bffService *auth.AuthService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		sid := auth.GetSIDCookie(c, "sid")
-		if sid != "" {
+	return func(ctx *gin.Context) {
+		sid, err := ctx.Cookie("sid")
+		if err == nil && sid != "" {
 			sessionStore := bffService.BFF.Sessions
 			sessionStore.DeleteSession(sid)
 		}
 
-		auth.ClearSIDCookie(c, "sid")
+		ctx.SetCookie(
+			"sid",    // name
+			"",       // value (empty to clear)
+			-1,       // max age (negative to delete)
+			"/",      // path
+			"",       // domain
+			false,    // secure
+			true,     // httpOnly
+		)
 
-		c.JSON(200, gin.H{"message": "Logout successful"})
+		ctx.JSON(200, gin.H{"message": "Logout successful"})
 	}
 }
 
-// JWT exchange handler (for microservice calls)
 func exchangeHandler(bffService *auth.AuthService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		sid := auth.GetSIDCookie(c, "sid")
-		if sid == "" {
-			c.JSON(401, gin.H{"error": "No session"})
+	return func(ctx *gin.Context) {
+		sid, err := ctx.Cookie("sid")
+		if err != nil || sid == "" {
+			ctx.JSON(401, gin.H{"error": "No session"})
 			return
 		}
 
 		jwt, err := bffService.BFF.Exchange.ExchangeSessionForJWT(sid)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Token generation failed"})
+			ctx.JSON(500, gin.H{"error": "Token generation failed"})
 			return
 		}
 
-		c.JSON(200, gin.H{
+		ctx.JSON(200, gin.H{
 			"jwt": jwt,
 			"message": "JWT token generated for microservice communication",
 		})
 	}
 }
 
-func profileHandler(c *gin.Context) {
-	user, exists := c.Get("user")
+func profileHandler(ctx *gin.Context) {
+	user, exists := ctx.Get("user")
 	if !exists {
-		c.JSON(500, gin.H{"error": "User not found"})
+		ctx.JSON(500, gin.H{"error": "User not found"})
 		return
 	}
 	userInfo := user.(auth.UserInfo)
 
-	c.JSON(200, gin.H{
+	ctx.JSON(200, gin.H{
 		"user_id": userInfo.ID,
 		"email":   userInfo.Email,
 		"role":    userInfo.Role,
@@ -200,17 +212,18 @@ func adminHandler(c *gin.Context) {
 	})
 }
 
-func publicHandler(c *gin.Context) {
-	user, exists := c.Get("user")
+// Optional session handler (works with or without session)
+func publicHandler(ctx *gin.Context) {
+	user, exists := ctx.Get("user")
 	if !exists {
-		c.JSON(200, gin.H{
+		ctx.JSON(200, gin.H{
 			"message": "Public endpoint - no session required",
 		})
 		return
 	}
 
 	userInfo := user.(auth.UserInfo)
-	c.JSON(200, gin.H{
+	ctx.JSON(200, gin.H{
 		"message": "Public endpoint - session found",
 		"user": gin.H{
 			"id":    userInfo.ID,
@@ -230,7 +243,7 @@ func main() {
 		JWTSecret:     "your-jwt-secret-change-in-production",
 		JWTExpiry:     10 * time.Minute,
 		SessionSecret: "your-session-secret-change-in-production",
-		SessionMaxAge: 86400, // 24 hours
+		SessionMaxAge: 86400,
 		SIDCookieName: "sid",
 		SessionService: sessionStore,
 
@@ -281,6 +294,7 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("BFF Authentication Example Server running on :%s", port)
+	log.Printf(" BFF Authentication Example Server running on :%s", port)
+
 	router.Run(":" + port)
 } 
