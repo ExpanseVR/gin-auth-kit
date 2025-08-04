@@ -38,6 +38,9 @@ func SetSIDCookie(c *gin.Context, sid string, config CookieConfig) {
 		config = DefaultCookieConfig()
 	}
 
+	// Set SameSite attribute first
+	c.SetSameSite(config.SameSite)
+
 	c.SetCookie(
 		config.Name,
 		sid,
@@ -79,6 +82,9 @@ func ClearSIDCookie(c *gin.Context, cookieName string) {
 }
 
 func SetSecureCookie(c *gin.Context, name, value string, config CookieConfig) {
+	// Set SameSite attribute first
+	c.SetSameSite(config.SameSite)
+
 	c.SetCookie(
 		name,
 		value,
