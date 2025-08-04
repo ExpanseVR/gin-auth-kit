@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [1.0.2] – 2025‑07‑31
+## [1.0.2] – 2025‑08‑04
 
 ### Added
 
@@ -21,10 +21,9 @@
 
 #### Cookie Management
 
-- **SID Cookie Utilities** - `SetSIDCookie`, `GetSIDCookie`, `ClearSIDCookie` functions
-- **CookieConfig Struct** - Configurable cookie options (Name, Domain, Path, MaxAge, Secure, HttpOnly, SameSite)
-- **Secure Session IDs** - `GenerateSecureSID()` utility function in `utils` package
-- **Manual Cookie Control** - Users explicitly set SID cookies after session creation
+- **Manual Cookie Control** - Users explicitly set SID cookies after session creation using Gin's built-in functions
+- **Session ID Generation** - Users implement their own session ID generation (example provided)
+- **Standard Gin Integration** - Uses `c.SetCookie()` and `c.Cookie()` for cookie management
 
 #### Configuration & Validation
 
@@ -83,13 +82,13 @@
 #### Security Improvements
 
 - **Cookie Security** - HttpOnly, Secure, and SameSite defaults for all cookies
-- **Session ID Generation** - Cryptographically secure session ID generation
+- **Session ID Generation** - Users implement their own secure session ID generation
 - **JWT Security** - Proper JWT validation and signing in exchange service
 
 #### Code Organization
 
 - **File Structure** - Separated concerns into `config.go`, `validation.go`, `oauth.go`, `bff_middleware.go`, etc.
-- **Import Organization** - Clean separation of core package and utilities
+- **Import Organization** - Clean separation of core package and standard library usage
 - **Test Coverage** - Comprehensive tests for JWT regression, OAuth foundation, and BFF functionality
 
 ### Dependencies
@@ -111,11 +110,11 @@
 **AuthService Handler Access:**
 
 ```go
-// Old (v1.x)
+// Old (v1.0.1)
 authService.LoginHandler()
 authService.MiddlewareFunc()
 
-// New (v2.0)
+// New (v1.0.2)
 authService.JWT.Middleware.LoginHandler()
 authService.JWT.Middleware.MiddlewareFunc()
 ```
@@ -123,7 +122,7 @@ authService.JWT.Middleware.MiddlewareFunc()
 **Configuration Structure:**
 
 ```go
-// Old (v1.x)
+// Old (v1.0.1)
 opts := &auth.AuthOptions{
     BcryptCost: 12, // Removed
     // ...
@@ -131,7 +130,7 @@ opts := &auth.AuthOptions{
 
 // New (v1.0.2)
 opts := &auth.AuthOptions{
-    // BcryptCost removed - pass directly to utils.HashPassword()
+    // BcryptCost removed - use bcrypt.GenerateFromPassword() directly
     OAuth: &auth.OAuthConfig{
         // OAuth configuration now available
     },
@@ -152,6 +151,6 @@ bffService, err := auth.NewBFFAuthService(bffOpts)
 ### Breaking Changes
 
 1. **Handler Method Removal** - Direct `AuthService` handler methods removed
-2. **BcryptCost Removal** - Configuration field removed, use `utils.HashPassword(password, cost)` directly
+2. **BcryptCost Removal** - Configuration field removed, use `bcrypt.GenerateFromPassword([]byte(password), cost)` directly
 3. **SessionService Requirement** - BFF mode requires user-provided `SessionService` implementation
 4. **Manual Cookie Management** - Users must explicitly set SID cookies after session creation

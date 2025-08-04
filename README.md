@@ -355,14 +355,16 @@ func main() {
                 return
             }
 
-            // Set secure cookie
-            auth.SetSIDCookie(c, sid, auth.CookieConfig{
-                Name:     "sid",
-                Path:     "/",
-                MaxAge:   86400,
-                HttpOnly: true,
-                Secure:   false, // Set true in production with HTTPS
-            })
+            // Set secure cookie using Gin's built-in function
+            c.SetCookie(
+                "sid",           // name
+                sid,             // value
+                86400,           // max age (24 hours)
+                "/",             // path
+                "",              // domain
+                false,           // secure (set true in production with HTTPS)
+                true,            // httpOnly
+            )
 
             c.JSON(200, gin.H{"message": "Login successful"})
         } else {
@@ -374,9 +376,9 @@ func main() {
     router.POST("/exchange",
         bffService.BFF.Middleware.RequireSession(),
         func(c *gin.Context) {
-            // Get SID from cookie
-            sid := auth.GetSIDCookie(c, "sid")
-            if sid == "" {
+            // Get SID from cookie using Gin's built-in function
+            sid, err := c.Cookie("sid")
+            if err != nil || sid == "" {
                 c.JSON(401, gin.H{"error": "No session"})
                 return
             }
@@ -434,7 +436,7 @@ curl -b cookies.txt http://localhost:8080/profile
 curl -X POST http://localhost:8080/exchange -b cookies.txt
 ```
 
-> ⚠️ **Security Note**: Set `Secure: true` for `SetSIDCookie` in production and use HTTPS to prevent token leakage.
+> ⚠️ **Security Note**: Set `Secure: true` for `c.SetCookie` in production and use HTTPS to prevent token leakage.
 
 ## Next Steps
 
@@ -486,39 +488,46 @@ if exists {
 ### Cookie Management
 
 ```go
-import "github.com/ExpanseVR/gin-auth-kit"
+// Set secure SID cookie using Gin's built-in function
+c.SetCookie(
+    "sid",           // name
+    sid,             // value
+    86400,           // max age (24 hours)
+    "/",             // path
+    "",              // domain
+    true,            // secure (HTTPS only)
+    true,            // httpOnly
+)
 
-// Set secure SID cookie
-auth.SetSIDCookie(c, sid, auth.CookieConfig{
-    Name:     "sid",
-    Path:     "/",
-    MaxAge:   86400,
-    HttpOnly: true,
-    Secure:   true,
-    SameSite: "Lax",
-})
+// Get SID from cookie using Gin's built-in function
+sid, err := c.Cookie("sid")
 
-// Get SID from cookie
-sid := auth.GetSIDCookie(c, "sid")
-
-// Clear SID cookie (logout)
-auth.ClearSIDCookie(c, "sid")
+// Clear SID cookie (logout) using Gin's built-in function
+c.SetCookie(
+    "sid",    // name
+    "",       // value (empty to clear)
+    -1,       // max age (negative to delete)
+    "/",      // path
+    "",       // domain
+    false,    // secure
+    true,     // httpOnly
+)
 ```
 
 ### Password Utilities
 
 ```go
-import "github.com/ExpanseVR/gin-auth-kit/utils"
+import "golang.org/x/crypto/bcrypt"
 
 // Hash password with bcrypt
-hashedPassword, err := utils.HashPassword("password123", 12)
+hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password123"), 12)
 
 // Verify password
-err := utils.VerifyPassword(hashedPassword, "password123")
+err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte("password123"))
 
-// Generate secure session ID
-sid, err := utils.GenerateSecureSID()
-// Returns: "sid_a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+// Generate secure session ID (example)
+sid := "sid_" + time.Now().Format("20060102150405") + "_" + userEmail
+// In production, use crypto/rand for secure session IDs
 ```
 
 **Note**: Context helpers work after the respective middleware has processed the request. Cookie management functions are available for manual cookie handling in BFF scenarios.
@@ -708,20 +717,7 @@ JWTSecret: "your-secret-key"
 // ✅ Use environment variables
 JWTSecret: os.Getenv("JWT_SECRET")
 SessionSecret: os.Getenv("SESSION_SECRET")
-```
 
-**🍪 Cookie Security**
-
-```go
-auth.SetSIDCookie(c, sid, auth.CookieConfig{
-    Name:     "sid",
-    Path:     "/",
-    MaxAge:   86400,
-    HttpOnly: true,
-    Secure:   true,        // ✅ HTTPS only
-    SameSite: "Strict",    // ✅ CSRF protection
-    Domain:   ".yourdomain.com", // ✅ Proper domain
-})
 ```
 
 ### Environment Configuration
@@ -1082,14 +1078,16 @@ bffGroup.POST("/login", func(c *gin.Context) {
         return
     }
 
-    // IMPORTANT: Manually set the SID cookie
-    auth.SetSIDCookie(c, sid, auth.CookieConfig{
-        Name:     "sid",
-        Path:     "/",
-        MaxAge:   86400 * 30,
-        HttpOnly: true,
-        Secure:   true,
-    })
+    // IMPORTANT: Manually set the SID cookie using Gin's built-in function
+    c.SetCookie(
+        "sid",           // name
+        sid,             // value
+        86400 * 30,      // max age (30 days)
+        "/",             // path
+        "",              // domain
+        true,            // secure (HTTPS only)
+        true,            // httpOnly
+    )
 
     c.JSON(200, gin.H{"message": "Login successful"})
 })

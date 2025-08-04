@@ -87,6 +87,8 @@ func NewOAuthService(config *OAuthConfig) *OAuthService {
 	for name, providerConfig := range config.Providers {
 		provider, err := createGothProvider(name, providerConfig)
 		if err != nil {
+			// Log the error but continue with other providers
+			fmt.Printf("Warning: Failed to initialize OAuth provider '%s': %v\n", name, err)
 			continue
 		}
 		service.Providers[name] = provider
