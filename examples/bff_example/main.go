@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"log"
 	"os"
@@ -19,10 +21,12 @@ type SimpleSessionStore struct {
 }
 
 func (store *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
-	sid := "sid_" + time.Now().Format("20060102150405") + "_" + user.Email
-	if len(sid) > 64 {
-		sid = sid[:64]
+	randomBytes := make([]byte, 32)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", err
 	}
+
+	sid := "sid_" + hex.EncodeToString(randomBytes)
 
 	store.mutex.Lock()
 	store.sessions[sid] = user

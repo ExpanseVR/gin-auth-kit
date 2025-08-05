@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -191,12 +190,7 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, e
 	userInfo := UserInfo{
 		Email: gothUser.Email,
 		Role:  "user", // Default role for OAuth users
-	}
-
-	if gothUser.UserID != "" {
-		if id, err := strconv.ParseUint(gothUser.UserID, 10, 32); err == nil {
-			userInfo.ID = uint(id)
-		}
+		// Note: ID is left at zero value (0) for new users to allow database to assign unique ID
 	}
 
 	return userInfo, nil
