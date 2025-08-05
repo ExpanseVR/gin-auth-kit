@@ -14,6 +14,11 @@ type BFFAuthMiddleware struct {
 }
 
 func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService *JWTExchangeService, sidCookieName string) *BFFAuthMiddleware {
+	// Ensure sidCookieName has a default value if empty
+	if sidCookieName == "" {
+		sidCookieName = "sid"
+	}
+	
 	return &BFFAuthMiddleware{
 		sessionService:     sessionService,
 		jwtExchangeService: jwtExchangeService,
@@ -21,19 +26,19 @@ func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService *JWT
 	}
 }
 
-func (b *BFFAuthMiddleware) validateSessionFromCookie(c *gin.Context) (string, UserInfo, error) {
-	sid := b.getSIDFromCookie(c)
+func (auth *BFFAuthMiddleware) validateSessionFromCookie(c *gin.Context) (string, UserInfo, error) {
+	sid := auth.getSIDFromCookie(c)
 	if sid == "" {
 		return "", UserInfo{}, errors.New("no session cookie")
 	}
 	
-	userInfo, err := b.sessionService.ValidateSession(sid)
+	userInfo, err := auth.sessionService.ValidateSession(sid)
 	return sid, userInfo, err
 }
 
-func (b *BFFAuthMiddleware) RequireSession() gin.HandlerFunc {
+func (auth *BFFAuthMiddleware) RequireSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sid, userInfo, err := b.validateSessionFromCookie(c)
+		sid, userInfo, err := auth.validateSessionFromCookie(c)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
 			c.Abort()
@@ -46,16 +51,16 @@ func (b *BFFAuthMiddleware) RequireSession() gin.HandlerFunc {
 	}
 }
 
-func (b *BFFAuthMiddleware) RequireValidSession() gin.HandlerFunc {
+func (auth *BFFAuthMiddleware) RequireValidSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sid, userInfo, err := b.validateSessionFromCookie(c)
+		sid, userInfo, err := auth.validateSessionFromCookie(c)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Session required"})
 			c.Abort()
 			return
 		}
 
-		jwt, err := b.jwtExchangeService.ExchangeSessionForJWT(sid)
+		jwt, err := auth.jwtExchangeService.ExchangeSessionForJWT(sid)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate JWT"})
 			c.Abort()
@@ -69,9 +74,9 @@ func (b *BFFAuthMiddleware) RequireValidSession() gin.HandlerFunc {
 	}
 }
 
-func (b *BFFAuthMiddleware) OptionalSession() gin.HandlerFunc {
+func (auth *BFFAuthMiddleware) OptionalSession() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		sid, userInfo, err := b.validateSessionFromCookie(c)
+		sid, userInfo, err := auth.validateSessionFromCookie(c)
 		if err != nil {
 			c.Next()
 			return
@@ -83,12 +88,8 @@ func (b *BFFAuthMiddleware) OptionalSession() gin.HandlerFunc {
 	}
 }
 
-func (b *BFFAuthMiddleware) getSIDFromCookie(c *gin.Context) string {
-	if b.sidCookieName == "" {
-		b.sidCookieName = "sid"
-	}
-
-	cookie, err := c.Cookie(b.sidCookieName)
+func (auth *BFFAuthMiddleware) getSIDFromCookie(ctx *gin.Context) string {
+	cookie, err := ctx.Cookie(auth.sidCookieName)
 	if err != nil {
 		return ""
 	}

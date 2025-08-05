@@ -9,7 +9,7 @@ import (
 
 // PayloadFunc extracts user information into JWT claims
 // Called when: User successfully logs in - creates JWT payload from user data
-func PayloadFunc(data interface{}) jwt.MapClaims {
+func PayloadFunc(data any) jwt.MapClaims {
 	if user, ok := data.(*UserInfo); ok {
 		return jwt.MapClaims{
 			"user_id": user.ID,
@@ -22,9 +22,9 @@ func PayloadFunc(data interface{}) jwt.MapClaims {
 
 // IdentityHandler retrieves user identity from JWT claims
 // Called when: JWT token is validated - reconstructs user from token claims
-func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
-	return func(c *gin.Context) interface{} {
-		claims := jwt.ExtractClaims(c)
+func IdentityHandler(opts *AuthOptions) func(ctx *gin.Context) any {
+	return func(ctx *gin.Context) any {
+		claims := jwt.ExtractClaims(ctx)
 
 		userIDFloat, exists := claims["user_id"]
 		if !exists {
@@ -47,14 +47,14 @@ func IdentityHandler(opts *AuthOptions) func(c *gin.Context) interface{} {
 
 // Authenticator validates login credentials
 // Called when: User attempts to login - validates email/password combination
-func Authenticator(opts *AuthOptions) func(c *gin.Context) (interface{}, error) {
-	return func(c *gin.Context) (interface{}, error) {
+func Authenticator(opts *AuthOptions) func(ctx *gin.Context) (any, error) {
+	return func(ctx *gin.Context) (any, error) {
 		var loginRequest struct {
 			Email    string `json:"email" binding:"required,email"`
 			Password string `json:"password" binding:"required"`
 		}
 
-		if err := c.ShouldBindJSON(&loginRequest); err != nil {
+		if err := ctx.ShouldBindJSON(&loginRequest); err != nil {
 			return nil, jwt.ErrMissingLoginValues
 		}
 
@@ -73,7 +73,7 @@ func Authenticator(opts *AuthOptions) func(c *gin.Context) (interface{}, error) 
 
 // Authorizator determines if authenticated user has access to resource
 // Called when: Access to protected endpoint is requested - checks user permissions
-func Authorizator(data interface{}, c *gin.Context) bool {
+func Authorizator(data any, ctx *gin.Context) bool {
 	if user, ok := data.(*UserInfo); ok {
 		return user.Role == "admin" || user.Role == "user"
 	}
@@ -82,8 +82,8 @@ func Authorizator(data interface{}, c *gin.Context) bool {
 
 // Unauthorized handles cases where authentication/authorization fails
 // Called when: JWT token is invalid, expired, or user lacks permissions
-func Unauthorized(c *gin.Context, code int, message string) {
-	c.JSON(code, gin.H{
+func Unauthorized(ctx *gin.Context, code int, message string) {
+	ctx.JSON(code, gin.H{
 		"code":    code,
 		"message": message,
 	})
