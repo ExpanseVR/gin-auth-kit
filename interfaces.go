@@ -2,6 +2,8 @@ package auth
 
 import (
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // UserInfo represents user data returned by callback functions
@@ -16,25 +18,19 @@ type UserInfo struct {
 type FindUserByEmailFunc func(email string) (UserInfo, error)
 type FindUserByIDFunc func(id uint) (UserInfo, error)
 
-type AuthOptions struct {
-	// JWT Configuration
-	JWTSecret           string
-	JWTRealm           string
-	TokenExpireTime    time.Duration
-	RefreshExpireTime  time.Duration
-	IdentityKey        string
+// AuthMiddleware defines the interface that all auth middleware must implement
+// This allows for different auth strategies (JWT, session, etc.)
+type AuthMiddleware interface {
+	MiddlewareFunc() gin.HandlerFunc
+	LoginHandler() gin.HandlerFunc
+	LogoutHandler() gin.HandlerFunc
+	RefreshHandler() gin.HandlerFunc
+}
 
-	// Session Configuration  
-	SessionSecret string
-	SessionMaxAge int
-	SessionDomain string
-	SessionSecure bool
-	SessionSameSite string
-
-	// Security Settings
-	BcryptCost int
-
-	// Callback Functions
-	FindUserByEmail FindUserByEmailFunc
-	FindUserByID    FindUserByIDFunc
+// SessionService defines the interface for session management
+type SessionService interface {
+	CreateSession(user UserInfo, expiry time.Duration) (string, error)
+	GetSession(sid string) (UserInfo, error)
+	DeleteSession(sid string) error
+	ValidateSession(sid string) (UserInfo, error)
 } 

@@ -2,90 +2,94 @@ package auth
 
 import (
 	"fmt"
-	"net/http"
-
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/sessions"
 )
 
-// AuthMiddleware defines the interface that all auth middleware must implement
-// This allows for different auth strategies (JWT, session, etc.)
-type AuthMiddleware interface {
-	MiddlewareFunc() gin.HandlerFunc // Function for protecting routes
-	LoginHandler() gin.HandlerFunc // Returns the Gin handler for user login
-	LogoutHandler() gin.HandlerFunc // Returns the Gin handler for user logout
-	RefreshHandler() gin.HandlerFunc // Returns the Gin handler for token refresh
+type JWTService struct {
+	Middleware AuthMiddleware
 }
 
+type BFFService struct {
+	Sessions   SessionService
+	Exchange   *JWTExchangeService
+	Middleware *BFFAuthMiddleware
+}
+
+// AuthService is the main service that provides authentication functionality
 type AuthService struct {
-	middleware   AuthMiddleware
-	sessionStore sessions.Store
+  JWT   *JWTService
+  BFF   *BFFService
+  OAuth *OAuthService
 }
 
-// NewAuthService creates a new authentication service
-// This is the main entry point - use this instead of creating middleware directly
+// NewAuthService creates a traditional AuthService (stateless/middleware-based)
+// Creates: Optional JWT service + optional OAuth service
+// Use for: Traditional APIs, mobile apps, OAuth-only auth, stateless systems
 func NewAuthService(opts *AuthOptions) (*AuthService, error) {
-	// Validate required callback functions
-	if opts.FindUserByEmail == nil {
-		return nil, fmt.Errorf("FindUserByEmail callback is required")
-	}
-	if opts.FindUserByID == nil {
-		return nil, fmt.Errorf("FindUserByID callback is required")
+	if err := opts.ValidateAuthOptions(); err != nil {
+		return nil, fmt.Errorf("invalid AuthOptions: %w", err)
 	}
 
-	// Initialize JWT middleware as primary auth method
-	jwtMiddleware, err := newJWTMiddleware(opts)
-	if err != nil {
-		return nil, err
+	var jwtService *JWTService
+	if opts.JWTSecret != "" {
+		jwtMiddleware, err := NewJWTMiddleware(&JWTOptions{
+			Realm:             opts.JWTRealm,
+			Key:               []byte(opts.JWTSecret),
+			Timeout:           opts.TokenExpireTime,
+			MaxRefresh:        opts.RefreshExpireTime,
+			IdentityKey:       opts.IdentityKey,
+			FindUserByEmail:   opts.FindUserByEmail,
+			FindUserByID:      opts.FindUserByID,
+			SessionSecure:     opts.SessionSecure,
+			SessionDomain:     opts.SessionDomain,
+			SessionSameSite:   opts.SessionSameSite,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWT service: %w", err)
+		}
+
+		jwtService = &JWTService{
+			Middleware: jwtMiddleware,
+		}
 	}
 
-	// Initialize session store for OAuth and other stateful auth flows
-	sessionStore := sessions.NewCookieStore([]byte(opts.SessionSecret))
-	sessionStore.Options = &sessions.Options{
-		Domain:   opts.SessionDomain,
-		MaxAge:   opts.SessionMaxAge,
-		HttpOnly: true,
-		Secure:   opts.SessionSecure,
-		SameSite: parseSameSite(opts.SessionSameSite),
+	var oauthService *OAuthService
+	if opts.OAuth != nil {
+		oauthService = NewOAuthService(opts.OAuth)
 	}
 
 	return &AuthService{
-		middleware:   jwtMiddleware,
-		sessionStore: sessionStore,
+		JWT:   jwtService,
+		BFF:   nil,
+		OAuth: oauthService,
 	}, nil
 }
 
-// Wrapper functions for the middleware and session store
-func (as *AuthService) MiddlewareFunc() gin.HandlerFunc {
-	return as.middleware.MiddlewareFunc()
-}
-
-func (as *AuthService) LoginHandler() gin.HandlerFunc {
-	return as.middleware.LoginHandler()
-}
-
-func (as *AuthService) LogoutHandler() gin.HandlerFunc {
-	return as.middleware.LogoutHandler()
-}
-
-func (as *AuthService) RefreshHandler() gin.HandlerFunc {
-	return as.middleware.RefreshHandler()
-}
-
-func (as *AuthService) GetSessionStore() sessions.Store {
-	return as.sessionStore
-}
-
-// parseSameSite helper function (moved from utils to keep it internal)
-func parseSameSite(sameSite string) http.SameSite {
-	switch sameSite {
-	case "Lax":
-		return http.SameSiteLaxMode
-	case "Strict":
-		return http.SameSiteStrictMode
-	case "None":
-		return http.SameSiteNoneMode
-	default:
-		return http.SameSiteDefaultMode
+// NewBFFAuthService creates a BFF-centric AuthService (session-based with JWT exchange)
+// Creates: BFF service (always) + optional OAuth service
+// Use for: Backend-for-Frontend pattern, web apps, session-to-JWT conversion
+func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
+	if err := opts.ValidateBFFAuthOptions(); err != nil {
+		return nil, fmt.Errorf("invalid BFF configuration: %w", err)
 	}
-} 
+
+	sessionService := opts.SessionService
+	jwtExchangeService := NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
+	bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, opts.SIDCookieName)
+
+	bffService := &BFFService{
+		Sessions:   sessionService,
+		Exchange:   jwtExchangeService,
+		Middleware: bffMiddleware,
+	}
+
+	var oauthService *OAuthService
+	if opts.OAuth != nil {
+		oauthService = NewOAuthService(opts.OAuth)
+	}
+
+	return &AuthService{
+		JWT:   nil,
+		BFF:   bffService,
+		OAuth: oauthService,
+	}, nil
+}
