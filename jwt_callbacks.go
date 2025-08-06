@@ -11,11 +11,22 @@ import (
 // Called when: User successfully logs in - creates JWT payload from user data
 func PayloadFunc(data any) jwt.MapClaims {
 	if user, ok := data.(*UserInfo); ok {
-		return jwt.MapClaims{
-			"user_id": user.ID,
-			"email":   user.Email,
-			"role":    user.Role,
+		claims := jwt.MapClaims{
+			"user_id":    user.ID,
+			"email":      user.Email,
+			"role":       user.Role,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
 		}
+
+		// Add custom fields to JWT claims
+		if user.CustomFields != nil {
+			for key, value := range user.CustomFields {
+				claims["custom_"+key] = value
+			}
+		}
+
+		return claims
 	}
 	return jwt.MapClaims{}
 }
