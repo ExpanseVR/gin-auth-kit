@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
@@ -78,6 +79,7 @@ type OAuthService struct {
 	FailureURL   string
 	FindUserByEmail types.FindUserByEmailFunc
 	FindUserByID    types.FindUserByIDFunc
+	mu           sync.RWMutex // Protects the Providers map
 }
 
 func NewOAuthService(config *types.OAuthConfig) *OAuthService {
@@ -118,6 +120,8 @@ func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 }
 
 func (auth *OAuthService) RegisterProvider(name string, provider goth.Provider) {
+	auth.mu.Lock()
+	defer auth.mu.Unlock()
 	auth.Providers[name] = provider
 
 	// Re-register all providers with goth to include the new one
@@ -129,6 +133,8 @@ func (auth *OAuthService) RegisterProvider(name string, provider goth.Provider) 
 }
 
 func (auth *OAuthService) GetProvider(name string) (goth.Provider, error) {
+	auth.mu.RLock()
+	defer auth.mu.RUnlock()
 	provider, exists := auth.Providers[name]
 	if !exists {
 		return nil, ErrProviderNotFound
@@ -137,20 +143,20 @@ func (auth *OAuthService) GetProvider(name string) (goth.Provider, error) {
 }
 
 func (auth *OAuthService) BeginAuthHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		providerName := c.Param("provider")
+	return func(ctx *gin.Context) {
+		providerName := ctx.Param("provider")
 		if providerName == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Provider not specified"})
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Provider not specified"})
 			return
 		}
 
 		_, err := auth.GetProvider(providerName)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
 			return
 		}
 
-		gothic.BeginAuthHandler(c.Writer, c.Request)
+		gothic.BeginAuthHandler(ctx.Writer, ctx.Request)
 	}
 }
 

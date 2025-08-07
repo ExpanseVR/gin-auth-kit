@@ -51,6 +51,7 @@ func findUserByEmail(email string) (types.UserInfo, error) {
 - **Improved User Mapping** - Enhanced `MapGothUserToUserInfo` to handle UserID conversion and extract first/last names
 - **Custom Field Mapping** - Automatic mapping of OAuth provider data to `CustomFields`
 - **Better JWT Integration** - Custom fields from OAuth providers are included in JWT tokens
+- **OAuth Thread Safety** - Added mutex protection to OAuth provider registration to prevent race conditions
 
 ### Changed
 
