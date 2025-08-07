@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ExpanseVR/gin-auth-kit/jwt"
 	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 	"github.com/gin-gonic/gin"
@@ -25,21 +26,21 @@ func (m *mockSessionServiceImpl) CreateSession(user types.UserInfo, expiry time.
 
 func (m *mockSessionServiceImpl) GetSession(sid string) (types.UserInfo, error) {
 	if sid == "" {
-		return types.UserInfo{}, ErrInvalidSession
+		return types.UserInfo{}, gak_jwt.ErrInvalidSession
 	}
 	return types.UserInfo{}, ErrSessionNotFound
 }
 
 func (m *mockSessionServiceImpl) DeleteSession(sid string) error {
 	if sid == "" {
-		return ErrInvalidSession
+		return gak_jwt.ErrInvalidSession
 	}
 	return nil
 }
 
 func (m *mockSessionServiceImpl) ValidateSession(sid string) (types.UserInfo, error) {
 	if sid == "" {
-		return types.UserInfo{}, ErrInvalidSession
+		return types.UserInfo{}, gak_jwt.ErrInvalidSession
 	}
 	return types.UserInfo{}, ErrSessionNotFound
 }
@@ -77,7 +78,7 @@ func TestGenerateSecureSID(t *testing.T) {
 
 func TestJWTExchangeService(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
-	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
+	jwtExchangeService := gak_jwt.NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 
 	t.Run("ExchangeSessionForJWT_EmptySID", func(t *testing.T) {
 		_, err := jwtExchangeService.ExchangeSessionForJWT("")
@@ -93,7 +94,7 @@ func TestJWTExchangeService(t *testing.T) {
 
 func TestBFFAuthMiddleware(t *testing.T) {
 	mockSessionService := &mockSessionServiceImpl{}
-	jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
+	jwtExchangeService := gak_jwt.NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 	bffMiddleware := NewBFFAuthMiddleware(mockSessionService, jwtExchangeService, "sid")
 
 	t.Run("RequireSession_NoCookie", func(t *testing.T) {
@@ -157,12 +158,12 @@ func TestBFFServiceConstructors(t *testing.T) {
 	})
 
 	t.Run("NewJWTExchangeService", func(t *testing.T) {
-		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
+		jwtExchangeService := gak_jwt.NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 		assert.NotNil(t, jwtExchangeService)
 	})
 
 	t.Run("NewBFFAuthMiddleware", func(t *testing.T) {
-		jwtExchangeService := NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
+		jwtExchangeService := gak_jwt.NewJWTExchangeService("test-secret", mockSessionService, time.Minute*10)
 		bffMiddleware := NewBFFAuthMiddleware(mockSessionService, jwtExchangeService, "sid")
 		assert.NotNil(t, bffMiddleware)
 	})

@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 
+	"github.com/ExpanseVR/gin-auth-kit/jwt"
 	"github.com/ExpanseVR/gin-auth-kit/types"
 )
 
@@ -12,7 +13,7 @@ type JWTService struct {
 
 type BFFService struct {
 	Sessions   types.SessionService
-	Exchange   *JWTExchangeService
+	Exchange   *gak_jwt.JWTExchangeService
 	Middleware *BFFAuthMiddleware
 }
 
@@ -33,7 +34,7 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 
 	var jwtService *JWTService
 	if opts.JWTSecret != "" {
-		jwtMiddleware, err := NewJWTMiddleware(&JWTOptions{
+		jwtMiddleware, err := gak_jwt.NewJWTMiddleware(&gak_jwt.JWTOptions{
 			Realm:             opts.JWTRealm,
 			Key:               []byte(opts.JWTSecret),
 			Timeout:           opts.TokenExpireTime,
@@ -75,7 +76,7 @@ func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
 	}
 
 	sessionService := opts.SessionService
-	jwtExchangeService := NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
+	jwtExchangeService := gak_jwt.NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
 	bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, opts.SIDCookieName)
 
 	bffService := &BFFService{

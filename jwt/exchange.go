@@ -1,4 +1,4 @@
-package auth
+package gak_jwt
 
 import (
 	"errors"

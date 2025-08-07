@@ -64,6 +64,11 @@ func findUserByEmail(email string) (types.UserInfo, error) {
 - **Cleaner Organization** - Types and interfaces are now in dedicated `types` package
 - **Better Imports** - Explicit types package import for better clarity
 - **Future Extensibility** - Easier to add new types and interfaces
+- **Internal JWT Package** - JWT functionality is now in internal `gak_jwt` package to avoid naming conflicts
+  - Package name: `gak_jwt` (gin-auth-kit JWT)
+  - Import path: `github.com/ExpanseVR/gin-auth-kit/jwt`
+  - Internal use only - not exposed to external users
+  - Prevents conflicts with standard JWT packages like `github.com/golang-jwt/jwt/v4`
 
 ## [1.0.3] – 2025‑08‑07
 
