@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
+	"github.com/ExpanseVR/gin-auth-kit/utils"
 	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
-
-	"github.com/ExpanseVR/gin-auth-kit/utils"
 )
 
 type JWTOptions struct {
@@ -16,8 +16,8 @@ type JWTOptions struct {
 	Timeout           time.Duration
 	MaxRefresh        time.Duration
 	IdentityKey       string
-	FindUserByEmail   FindUserByEmailFunc
-	FindUserByID      FindUserByIDFunc
+	FindUserByEmail   types.FindUserByEmailFunc
+	FindUserByID      types.FindUserByIDFunc
 	SessionSecure     bool
 	SessionDomain     string
 	SessionSameSite   string
@@ -26,8 +26,6 @@ type JWTOptions struct {
 type JWTMiddleware struct {
 	*jwt.GinJWTMiddleware
 }
-
-var _ AuthMiddleware = (*JWTMiddleware)(nil)
 
 func NewJWTMiddleware(opts *JWTOptions) (*JWTMiddleware, error) {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{

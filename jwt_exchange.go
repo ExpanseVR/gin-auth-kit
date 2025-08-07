@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -18,11 +19,11 @@ var (
 
 type JWTExchangeService struct {
 	jwtSecret      string
-	sessionService SessionService
+	sessionService types.SessionService
 	jwtExpiry      time.Duration
 }
 
-func NewJWTExchangeService(jwtSecret string, sessionService SessionService, jwtExpiry time.Duration) *JWTExchangeService {
+func NewJWTExchangeService(jwtSecret string, sessionService types.SessionService, jwtExpiry time.Duration) *JWTExchangeService {
 	return &JWTExchangeService{
 		jwtSecret:      jwtSecret,
 		sessionService: sessionService,
@@ -66,7 +67,7 @@ func (exchangeService *JWTExchangeService) RefreshSessionJWT(sid string) (string
 	return token, nil
 }
 
-func (exchangeService *JWTExchangeService) generateJWT(user UserInfo) (string, error) {
+func (exchangeService *JWTExchangeService) generateJWT(user types.UserInfo) (string, error) {
 	if exchangeService.jwtSecret == "" {
 		return "", ErrInvalidJWTSecret
 	}

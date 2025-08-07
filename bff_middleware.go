@@ -4,16 +4,17 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
 )
 
 type BFFAuthMiddleware struct {
-	sessionService     SessionService
+	sessionService     types.SessionService
 	jwtExchangeService *JWTExchangeService
 	sidCookieName      string
 }
 
-func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService *JWTExchangeService, sidCookieName string) *BFFAuthMiddleware {
+func NewBFFAuthMiddleware(sessionService types.SessionService, jwtExchangeService *JWTExchangeService, sidCookieName string) *BFFAuthMiddleware {
 	// Ensure sidCookieName has a default value if empty
 	if sidCookieName == "" {
 		sidCookieName = "sid"
@@ -26,10 +27,10 @@ func NewBFFAuthMiddleware(sessionService SessionService, jwtExchangeService *JWT
 	}
 }
 
-func (auth *BFFAuthMiddleware) validateSessionFromCookie(c *gin.Context) (string, UserInfo, error) {
-	sid := auth.getSIDFromCookie(c)
+func (auth *BFFAuthMiddleware) validateSessionFromCookie(ctx *gin.Context) (string, types.UserInfo, error) {
+	sid := auth.getSIDFromCookie(ctx)
 	if sid == "" {
-		return "", UserInfo{}, errors.New("no session cookie")
+		return "", types.UserInfo{}, errors.New("no session cookie")
 	}
 
 	userInfo, err := auth.sessionService.ValidateSession(sid)

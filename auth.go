@@ -2,23 +2,25 @@ package auth
 
 import (
 	"fmt"
+
+	"github.com/ExpanseVR/gin-auth-kit/types"
 )
 
 type JWTService struct {
-	Middleware AuthMiddleware
+	Middleware types.AuthMiddleware
 }
 
 type BFFService struct {
-	Sessions   SessionService
+	Sessions   types.SessionService
 	Exchange   *JWTExchangeService
 	Middleware *BFFAuthMiddleware
 }
 
 // AuthService is the main service that provides authentication functionality
 type AuthService struct {
-  JWT   *JWTService
-  BFF   *BFFService
-  OAuth *OAuthService
+	JWT   *JWTService
+	BFF   *BFFService
+	OAuth *OAuthService
 }
 
 // NewAuthService creates a traditional AuthService (stateless/middleware-based)

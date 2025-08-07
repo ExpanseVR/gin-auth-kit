@@ -42,7 +42,7 @@ Complete authentication toolkit for Gin web framework with JWT, OAuth, and BFF (
 ## Installation
 
 ```bash
-go get github.com/ExpanseVR/gin-auth-kit@latest
+go get github.com/ExpanseVR/gin-auth-kit
 ```
 
 ## 🤔 Which Authentication Method Should I Choose?
@@ -75,14 +75,17 @@ opts := &auth.AuthOptions{
 ### Required Callbacks
 
 ```go
-func findUserByEmail(email string) (auth.UserInfo, error) {
+func findUserByEmail(email string) (types.UserInfo, error) {
     // Your database lookup logic
-    return auth.UserInfo{ID: 1, Email: email, Role: "user"}, nil
+    if email == "user@example.com" {
+        return types.UserInfo{ID: 1, Email: email, Role: "user"}, nil
+    }
+    return types.UserInfo{}, errors.New("user not found")
 }
 
-func findUserByID(id uint) (auth.UserInfo, error) {
+func findUserByID(id uint) (types.UserInfo, error) {
     // Your database lookup logic
-    return auth.UserInfo{ID: id, Email: "user@example.com"}, nil
+    return types.UserInfo{ID: id, Email: "user@example.com"}, nil
 }
 ```
 
@@ -102,6 +105,7 @@ package main
 import (
     "errors"
     "log"
+    "time"
     "github.com/gin-gonic/gin"
     "github.com/ExpanseVR/gin-auth-kit"
 )
@@ -111,10 +115,12 @@ import (
 func main() {
     // Use common configuration (see above)
     opts := &auth.AuthOptions{
-        JWTSecret:       "your-secret-key-change-in-production",
-        JWTRealm:        "my-app",
-        FindUserByEmail: findUserByEmail, // See [Common Configuration](#common-configuration)
-        FindUserByID:    findUserByID,    // See [Common Configuration](#common-configuration)
+        JWTSecret:         "your-secret-key-change-in-production",
+        JWTRealm:          "my-app",
+        TokenExpireTime:   time.Hour,
+        RefreshExpireTime: time.Hour * 24,
+        FindUserByEmail:   findUserByEmail, // See [Common Configuration](#common-configuration)
+        FindUserByID:      findUserByID,    // See [Common Configuration](#common-configuration)
     }
 
     authService, err := auth.NewAuthService(opts)
@@ -263,15 +269,16 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/ExpanseVR/gin-auth-kit"
     "github.com/ExpanseVR/gin-auth-kit/utils"
+    "github.com/ExpanseVR/gin-auth-kit/types"
 )
 
 // Simple in-memory session store (use Redis/Database in production)
 type SimpleSessionStore struct {
-    sessions map[string]auth.UserInfo
+    sessions map[string]types.UserInfo
     mutex    sync.RWMutex
 }
 
-func (s *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
+func (s *SimpleSessionStore) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
     sid, err := utils.GenerateSecureSID()
     if err != nil {
         return "", err
@@ -284,18 +291,18 @@ func (s *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.Durat
     return sid, nil
 }
 
-func (s *SimpleSessionStore) ValidateSession(sid string) (auth.UserInfo, error) {
+func (s *SimpleSessionStore) ValidateSession(sid string) (types.UserInfo, error) {
     s.mutex.RLock()
     user, exists := s.sessions[sid]
     s.mutex.RUnlock()
 
     if !exists {
-        return auth.UserInfo{}, errors.New("session not found")
+        return types.UserInfo{}, errors.New("session not found")
     }
     return user, nil
 }
 
-func (s *SimpleSessionStore) GetSession(sid string) (auth.UserInfo, error) {
+func (s *SimpleSessionStore) GetSession(sid string) (types.UserInfo, error) {
     return s.ValidateSession(sid)
 }
 
@@ -309,7 +316,7 @@ func (s *SimpleSessionStore) DeleteSession(sid string) error {
 func main() {
     // Simple session store
     sessionStore := &SimpleSessionStore{
-        sessions: make(map[string]auth.UserInfo),
+        sessions: make(map[string]types.UserInfo),
     }
 
     // BFF configuration
@@ -346,7 +353,7 @@ func main() {
 
         // Authenticate user (simplified)
         if loginReq.Email == "user@example.com" && loginReq.Password == "password123" {
-            user := auth.UserInfo{ID: 1, Email: loginReq.Email, Role: "user"}
+            user := types.UserInfo{ID: 1, Email: loginReq.Email, Role: "user"}
 
             // Create session
             sid, err := sessionStore.CreateSession(user, 24*time.Hour)
@@ -403,7 +410,7 @@ func main() {
                 c.JSON(500, gin.H{"error": "User not found"})
                 return
             }
-            userInfo := user.(auth.UserInfo)
+            userInfo := user.(types.UserInfo)
             c.JSON(200, gin.H{
                 "user_id": userInfo.ID,
                 "email":   userInfo.Email,
@@ -481,7 +488,7 @@ if exists {
 // Extract full user info from session context (after BFF middleware)
 user, exists := c.Get("user")
 if exists {
-    userInfo := user.(auth.UserInfo)
+    userInfo := user.(types.UserInfo)
 }
 ```
 
@@ -583,12 +590,12 @@ func main() {
         },
 
         // User callbacks
-        FindUserByEmail: func(email string) (auth.UserInfo, error) {
+        FindUserByEmail: func(email string) (types.UserInfo, error) {
             user, err := db.GetUserByEmail(email)
             if err != nil {
-                return auth.UserInfo{}, err
+                return types.UserInfo{}, err
             }
-            return auth.UserInfo{
+            return types.UserInfo{
                 ID:           user.ID,
                 Email:        user.Email,
                 Role:         user.Role,
@@ -596,12 +603,12 @@ func main() {
             }, nil
         },
 
-        FindUserByID: func(id uint) (auth.UserInfo, error) {
+        FindUserByID: func(id uint) (types.UserInfo, error) {
             user, err := db.GetUserByID(id)
             if err != nil {
-                return auth.UserInfo{}, err
+                return types.UserInfo{}, err
             }
-            return auth.UserInfo{
+            return types.UserInfo{
                 ID:           user.ID,
                 Email:        user.Email,
                 Role:         user.Role,
@@ -818,7 +825,7 @@ type RedisSessionService struct {
     client *redis.Client
 }
 
-func (r *RedisSessionService) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
+func (r *RedisSessionService) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
     sid, err := utils.GenerateSecureSID()
     if err != nil {
         return "", err
@@ -829,18 +836,18 @@ func (r *RedisSessionService) CreateSession(user auth.UserInfo, expiry time.Dura
     return sid, err
 }
 
-func (r *RedisSessionService) ValidateSession(sid string) (auth.UserInfo, error) {
+func (r *RedisSessionService) ValidateSession(sid string) (types.UserInfo, error) {
     data, err := r.client.Get(context.Background(), sid).Result()
     if err != nil {
-        return auth.UserInfo{}, err
+        return types.UserInfo{}, err
     }
 
-    var user auth.UserInfo
+    var user types.UserInfo
     err = json.Unmarshal([]byte(data), &user)
     return user, err
 }
 
-func (r *RedisSessionService) GetSession(sid string) (auth.UserInfo, error) {
+func (r *RedisSessionService) GetSession(sid string) (types.UserInfo, error) {
     return r.ValidateSession(sid)
 }
 
@@ -861,7 +868,7 @@ type DBSessionService struct {
     db *sql.DB
 }
 
-func (d *DBSessionService) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
+func (d *DBSessionService) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
     sid, err := utils.GenerateSecureSID()
     if err != nil {
         return "", err
@@ -876,7 +883,7 @@ func (d *DBSessionService) CreateSession(user auth.UserInfo, expiry time.Duratio
     return sid, err
 }
 
-func (d *DBSessionService) ValidateSession(sid string) (auth.UserInfo, error) {
+func (d *DBSessionService) ValidateSession(sid string) (types.UserInfo, error) {
     var userID uint
     var expiresAt time.Time
 
@@ -886,14 +893,14 @@ func (d *DBSessionService) ValidateSession(sid string) (auth.UserInfo, error) {
     `, sid).Scan(&userID, &expiresAt)
 
     if err != nil {
-        return auth.UserInfo{}, err
+        return types.UserInfo{}, err
     }
 
     // Fetch user details
     return d.FindUserByID(userID)
 }
 
-func (d *DBSessionService) GetSession(sid string) (auth.UserInfo, error) {
+func (d *DBSessionService) GetSession(sid string) (types.UserInfo, error) {
     return d.ValidateSession(sid)
 }
 
@@ -934,12 +941,12 @@ router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 
 ```go
 // Track failed attempts in your FindUserByEmail callback
-func findUserByEmail(email string) (auth.UserInfo, error) {
+func findUserByEmail(email string) (types.UserInfo, error) {
     user, err := db.GetUserByEmail(email)
     if err != nil {
         // Log failed attempt
         log.Printf("Failed login attempt for email: %s", email)
-        return auth.UserInfo{}, err
+        return types.UserInfo{}, err
     }
     return user, nil
 }
@@ -999,20 +1006,20 @@ type MySessionService struct {
     db *sql.DB  // Your database connection
 }
 
-func (m *MySessionService) CreateSession(user UserInfo, expiry time.Duration) (string, error) {
+func (m *MySessionService) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
     // Your session creation logic - store in database/Redis/etc.
     sid := utils.GenerateSecureSID()
     // Store sid -> user mapping in your database
     return sid, nil
 }
 
-func (m *MySessionService) ValidateSession(sid string) (UserInfo, error) {
+func (m *MySessionService) ValidateSession(sid string) (types.UserInfo, error) {
     // Your session validation logic - lookup from database/Redis/etc.
     // Return user info if session is valid
     return userInfo, nil
 }
 
-func (m *MySessionService) GetSession(sid string) (UserInfo, error) {
+func (m *MySessionService) GetSession(sid string) (types.UserInfo, error) {
     // Your session retrieval logic
     return userInfo, nil
 }
@@ -1138,6 +1145,8 @@ See [Go Reference](https://pkg.go.dev/github.com/ExpanseVR/gin-auth-kit#AuthOpti
 ### UserInfo Struct
 
 ```go
+import "github.com/ExpanseVR/gin-auth-kit/types"
+
 type UserInfo struct {
     ID           uint           `json:"id"`
     Email        string         `json:"email"`
@@ -1163,7 +1172,7 @@ See [CHANGELOG.md](CHANGELOG.md) for migration guide from interface-based to cal
 
 ## Roadmap
 
-### ✅ Completed (v1.0.3)
+### ✅ Completed (v1.1.0)
 
 - [x] Extensible UserInfo struct with FirstName, LastName, and CustomFields
 - [x] Four extensibility patterns (embedding, custom fields, custom methods, factory)

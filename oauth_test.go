@@ -3,6 +3,7 @@ package auth
 import (
 	"testing"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
@@ -403,7 +404,7 @@ func TestUserMapping(t *testing.T) {
 		gothUser     goth.User
 		expectError  bool
 		errorMsg     string
-		expectedUser UserInfo
+		expectedUser types.UserInfo
 	}{
 		{
 			name: "Valid Goth User with ID",
@@ -413,7 +414,7 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
 				Role:  "user",
@@ -426,7 +427,7 @@ func TestUserMapping(t *testing.T) {
 				Name:  "New User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    0, // No ID for new users
 				Email: "newuser@example.com",
 				Role:  "user",
@@ -440,7 +441,7 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
 				Role:  "user",
@@ -473,7 +474,7 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
 				Role:  "user",
@@ -535,7 +536,6 @@ func TestProviderRegistrationWithoutOverwriting(t *testing.T) {
 	// Create an empty OAuth service
 	service := &OAuthService{
 		Providers: make(map[string]goth.Provider),
-		config:    nil,
 	}
 
 	// Create test providers

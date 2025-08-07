@@ -1,5 +1,70 @@
 # CHANGELOG
 
+## [1.1.0] – 2025‑08‑07
+
+### Breaking Changes
+
+#### Structural Reorganization
+
+- **Types Package**: Moved `UserInfo` struct and interfaces to dedicated `types` package
+  - `UserInfo` is now in `github.com/ExpanseVR/gin-auth-kit/types`
+  - `AuthMiddleware`, `SessionService`, `FindUserByEmailFunc`, `FindUserByIDFunc` are now in `github.com/ExpanseVR/gin-auth-kit/types`
+  - All imports must be updated to use the new types package
+
+#### Migration Required
+
+**Before:**
+
+```go
+import "github.com/ExpanseVR/gin-auth-kit"
+
+func findUserByEmail(email string) (auth.UserInfo, error) {
+    // ...
+}
+```
+
+**After:**
+
+```go
+import (
+    "github.com/ExpanseVR/gin-auth-kit"
+    "github.com/ExpanseVR/gin-auth-kit/types"
+)
+
+func findUserByEmail(email string) (types.UserInfo, error) {
+    // ...
+}
+```
+
+### Added
+
+#### Extensible UserInfo Struct
+
+- **FirstName and LastName fields** - Added `FirstName` and `LastName` fields to `UserInfo` struct for basic user information
+- **CustomFields support** - Added `CustomFields map[string]any` for extensible user data storage
+- **Helper methods** - Added `GetFullName()`, `SetCustomField()`, and `GetCustomField()` methods
+- **Extensible patterns** - Support for embedding `UserInfo` in custom structs and using `CustomFields` directly
+- **Extensible User Example** - Comprehensive example showing four different patterns for extending `UserInfo`
+
+#### Enhanced OAuth Integration
+
+- **Improved User Mapping** - Enhanced `MapGothUserToUserInfo` to handle UserID conversion and extract first/last names
+- **Custom Field Mapping** - Automatic mapping of OAuth provider data to `CustomFields`
+- **Better JWT Integration** - Custom fields from OAuth providers are included in JWT tokens
+
+### Changed
+
+#### JWT Token Structure
+
+- **Extended Claims** - JWT tokens now include `first_name`, `last_name`, and custom fields (prefixed with `custom_`)
+- **Backward Compatibility** - Existing tokens continue to work, new fields are optional
+
+#### Package Structure
+
+- **Cleaner Organization** - Types and interfaces are now in dedicated `types` package
+- **Better Imports** - Explicit types package import for better clarity
+- **Future Extensibility** - Easier to add new types and interfaces
+
 ## [1.0.3] – 2025‑08‑07
 
 ### Added

@@ -2,6 +2,8 @@ package auth
 
 import (
 	"time"
+
+	"github.com/ExpanseVR/gin-auth-kit/types"
 )
 
 // OAuthProvider represents configuration for an OAuth provider
@@ -20,8 +22,8 @@ type OAuthConfig struct {
 	FailureURL   string                   `json:"failure_url"`
 	
 	// User management callbacks
-	FindUserByEmail FindUserByEmailFunc `json:"-"`
-	FindUserByID    FindUserByIDFunc    `json:"-"`
+	FindUserByEmail types.FindUserByEmailFunc `json:"-"`
+	FindUserByID    types.FindUserByIDFunc    `json:"-"`
 }
 
 // BFFAuthOptions represents configuration for BFF authentication
@@ -41,11 +43,11 @@ type BFFAuthOptions struct {
 	SIDCookiePath string
 	
 	// Session service (provided by implementing project)
-	SessionService SessionService
+	SessionService types.SessionService
 	
 	// User callbacks
-	FindUserByEmail FindUserByEmailFunc
-	FindUserByID    FindUserByIDFunc
+	FindUserByEmail types.FindUserByEmailFunc
+	FindUserByID    types.FindUserByIDFunc
 	
 	// OAuth configuration (optional)
 	OAuth *OAuthConfig
@@ -71,6 +73,6 @@ type AuthOptions struct {
 	OAuth *OAuthConfig
 
 	// Callback Functions
-	FindUserByEmail FindUserByEmailFunc
-	FindUserByID    FindUserByIDFunc
+	FindUserByEmail types.FindUserByEmailFunc
+	FindUserByID    types.FindUserByIDFunc
 } 

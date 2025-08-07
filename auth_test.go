@@ -4,32 +4,32 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Test helper functions
-func mockFindUserByEmail(email string) (UserInfo, error) {
+func mockFindUserByEmail(email string) (types.UserInfo, error) {
 	if email == "test@example.com" {
-		return UserInfo{
+		return types.UserInfo{
 			ID:    1,
-			Email: "test@example.com",
+			Email: email,
 			Role:  "user",
 		}, nil
 	}
-	return UserInfo{}, ErrUserNotFound
+	return types.UserInfo{}, ErrUserNotFound
 }
 
-func mockFindUserByID(id uint) (UserInfo, error) {
+func mockFindUserByID(id uint) (types.UserInfo, error) {
 	if id == 1 {
-		return UserInfo{
-			ID:    1,
+		return types.UserInfo{
+			ID:    id,
 			Email: "test@example.com",
 			Role:  "user",
 		}, nil
 	}
-	return UserInfo{}, ErrUserNotFound
+	return types.UserInfo{}, ErrUserNotFound
 }
 
 func TestJWTOnlyConfiguration(t *testing.T) {
@@ -319,18 +319,17 @@ func TestGinIntegration(t *testing.T) {
 func TestBFFConfiguration(t *testing.T) {
 	// Create a simple mock SessionService for testing
 	mockSessionService := &struct {
-		SessionService
-	}{}
+		types.SessionService
+	}{
+		SessionService: &mockSessionServiceImpl{},
+	}
 
 	opts := &BFFAuthOptions{
 		SessionSecret:   "test-session-secret",
 		SessionMaxAge:   86400,
-		SessionDomain:   "localhost",
-		SessionSecure:   false,
 		JWTSecret:       "test-jwt-secret",
-		JWTExpiry:       10 * time.Minute,
+		JWTExpiry:       time.Hour,
 		SIDCookieName:   "sid",
-		SIDCookiePath:   "/",
 		SessionService:  mockSessionService,
 		FindUserByEmail: mockFindUserByEmail,
 		FindUserByID:    mockFindUserByID,
@@ -377,8 +376,10 @@ func TestBFFAndJWTCoexistence(t *testing.T) {
 
 	// Test BFF service (with OAuth)
 	mockSessionService := &struct {
-		SessionService
-	}{}
+		types.SessionService
+	}{
+		SessionService: &mockSessionServiceImpl{},
+	}
 
 	bffOpts := &BFFAuthOptions{
 		SessionSecret:   "test-session-secret",

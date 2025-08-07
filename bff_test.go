@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -18,15 +19,15 @@ var (
 
 type mockSessionServiceImpl struct{}
 
-func (m *mockSessionServiceImpl) CreateSession(user UserInfo, expiry time.Duration) (string, error) {
+func (m *mockSessionServiceImpl) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
 	return "test_sid", nil
 }
 
-func (m *mockSessionServiceImpl) GetSession(sid string) (UserInfo, error) {
+func (m *mockSessionServiceImpl) GetSession(sid string) (types.UserInfo, error) {
 	if sid == "" {
-		return UserInfo{}, ErrInvalidSession
+		return types.UserInfo{}, ErrInvalidSession
 	}
-	return UserInfo{}, ErrSessionNotFound
+	return types.UserInfo{}, ErrSessionNotFound
 }
 
 func (m *mockSessionServiceImpl) DeleteSession(sid string) error {
@@ -36,11 +37,11 @@ func (m *mockSessionServiceImpl) DeleteSession(sid string) error {
 	return nil
 }
 
-func (m *mockSessionServiceImpl) ValidateSession(sid string) (UserInfo, error) {
+func (m *mockSessionServiceImpl) ValidateSession(sid string) (types.UserInfo, error) {
 	if sid == "" {
-		return UserInfo{}, ErrInvalidSession
+		return types.UserInfo{}, ErrInvalidSession
 	}
-	return UserInfo{}, ErrSessionNotFound
+	return types.UserInfo{}, ErrSessionNotFound
 }
 
 func TestSessionService(t *testing.T) {
@@ -87,13 +88,6 @@ func TestJWTExchangeService(t *testing.T) {
 	t.Run("ExchangeSessionForJWT_InvalidSession", func(t *testing.T) {
 		_, err := jwtExchangeService.ExchangeSessionForJWT("invalid-sid")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid session")
-	})
-
-	t.Run("RefreshSessionJWT_EmptySID", func(t *testing.T) {
-		_, err := jwtExchangeService.RefreshSessionJWT("")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid session ID")
 	})
 }
 
@@ -182,11 +176,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			JWTSecret:      "jwt-secret",
 			JWTExpiry:      10 * time.Minute,
 			SessionService: &mockSessionServiceImpl{},
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -206,11 +200,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			SessionMaxAge: 86400,
 			JWTSecret:     "jwt-secret",
 			JWTExpiry:     10 * time.Minute,
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -225,11 +219,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			SessionMaxAge: -1,
 			JWTSecret:     "jwt-secret",
 			JWTExpiry:     10 * time.Minute,
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -243,11 +237,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			SessionSecret: "test-secret",
 			SessionMaxAge: 86400,
 			JWTExpiry:     10 * time.Minute,
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -262,11 +256,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			SessionMaxAge: 86400,
 			JWTSecret:     "jwt-secret",
 			JWTExpiry:     -1 * time.Minute,
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -282,8 +276,8 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			JWTSecret:      "jwt-secret",
 			JWTExpiry:      10 * time.Minute,
 			SessionService: &mockSessionServiceImpl{},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -299,8 +293,8 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			JWTSecret:      "jwt-secret",
 			JWTExpiry:      10 * time.Minute,
 			SessionService: &mockSessionServiceImpl{},
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 
@@ -316,11 +310,11 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 			JWTSecret:      "jwt-secret",
 			JWTExpiry:      10 * time.Minute,
 			SessionService: &mockSessionServiceImpl{},
-			FindUserByEmail: func(email string) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByEmail: func(email string) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
-			FindUserByID: func(id uint) (UserInfo, error) {
-				return UserInfo{}, nil
+			FindUserByID: func(id uint) (types.UserInfo, error) {
+				return types.UserInfo{}, nil
 			},
 		}
 

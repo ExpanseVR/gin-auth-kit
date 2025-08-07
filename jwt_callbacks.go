@@ -1,16 +1,16 @@
 package auth
 
 import (
+	"github.com/ExpanseVR/gin-auth-kit/types"
+	"github.com/ExpanseVR/gin-auth-kit/utils"
 	jwt "github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
-
-	"github.com/ExpanseVR/gin-auth-kit/utils"
 )
 
 // PayloadFunc extracts user information into JWT claims
 // Called when: User successfully logs in - creates JWT payload from user data
 func PayloadFunc(data any) jwt.MapClaims {
-	if user, ok := data.(*UserInfo); ok {
+	if user, ok := data.(*types.UserInfo); ok {
 		claims := jwt.MapClaims{
 			"user_id":    user.ID,
 			"email":      user.Email,
@@ -85,7 +85,7 @@ func Authenticator(opts *AuthOptions) func(ctx *gin.Context) (any, error) {
 // Authorizator determines if authenticated user has access to resource
 // Called when: Access to protected endpoint is requested - checks user permissions
 func Authorizator(data any, ctx *gin.Context) bool {
-	if user, ok := data.(*UserInfo); ok {
+	if user, ok := data.(*types.UserInfo); ok {
 		return user.Role == "admin" || user.Role == "user"
 	}
 	return false

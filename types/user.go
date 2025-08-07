@@ -1,10 +1,4 @@
-package auth
-
-import (
-	"time"
-
-	"github.com/gin-gonic/gin"
-)
+package types
 
 // UserInfo represents user data returned by callback functions
 // This struct is extensible - It can be embedded in other structs
@@ -19,6 +13,7 @@ type UserInfo struct {
 	CustomFields map[string]any `json:"custom_fields,omitempty"` // Extensible fields for implementers
 }
 
+// GetFullName returns the user's full name
 func (userInfo *UserInfo) GetFullName() string {
 	if userInfo.FirstName == "" && userInfo.LastName == "" {
 		return ""
@@ -47,25 +42,4 @@ func (userInfo *UserInfo) GetCustomField(key string) (any, bool) {
 	}
 	value, exists := userInfo.CustomFields[key]
 	return value, exists
-}
-
-// UserFinder callback function types
-type FindUserByEmailFunc func(email string) (UserInfo, error)
-type FindUserByIDFunc func(id uint) (UserInfo, error)
-
-// AuthMiddleware defines the interface that all auth middleware must implement
-// This allows for different auth strategies (JWT, session, etc.)
-type AuthMiddleware interface {
-	MiddlewareFunc() gin.HandlerFunc
-	LoginHandler() gin.HandlerFunc
-	LogoutHandler() gin.HandlerFunc
-	RefreshHandler() gin.HandlerFunc
-}
-
-// SessionService defines the interface for session management
-type SessionService interface {
-	CreateSession(user UserInfo, expiry time.Duration) (string, error)
-	GetSession(sid string) (UserInfo, error)
-	DeleteSession(sid string) error
-	ValidateSession(sid string) (UserInfo, error)
 }

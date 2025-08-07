@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -69,9 +70,14 @@ func createGothProvider(name string, provider OAuthProvider) (goth.Provider, err
 	}
 }
 
+// OAuthService handles OAuth authentication
 type OAuthService struct {
-	Providers map[string]goth.Provider
-	config    *OAuthConfig
+	Providers    map[string]goth.Provider
+	BaseURL      string
+	SuccessURL   string
+	FailureURL   string
+	FindUserByEmail types.FindUserByEmailFunc
+	FindUserByID    types.FindUserByIDFunc
 }
 
 func NewOAuthService(config *OAuthConfig) *OAuthService {
@@ -80,8 +86,12 @@ func NewOAuthService(config *OAuthConfig) *OAuthService {
 	}
 
 	service := &OAuthService{
-		Providers: make(map[string]goth.Provider),
-		config:    config,
+		Providers:    make(map[string]goth.Provider),
+		BaseURL:      config.BaseURL,
+		SuccessURL:   config.SuccessURL,
+		FailureURL:   config.FailureURL,
+		FindUserByEmail: config.FindUserByEmail,
+		FindUserByID:    config.FindUserByID,
 	}
 
 	// Initialize providers from configuration
@@ -175,19 +185,19 @@ func (auth *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 	}
 }
 
-func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error) {
+func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserInfo, error) {
 	if gothUser.Email == "" {
-		return UserInfo{}, errors.New("email is required")
+		return types.UserInfo{}, errors.New("email is required")
 	}
 
-	if auth.config != nil && auth.config.FindUserByEmail != nil {
-		existingUser, err := auth.config.FindUserByEmail(gothUser.Email)
+	if auth.FindUserByEmail != nil {
+		existingUser, err := auth.FindUserByEmail(gothUser.Email)
 		if err == nil {
 			return existingUser, nil
 		}
 	}
 
-	userInfo := UserInfo{
+	userInfo := types.UserInfo{
 		Email: gothUser.Email,
 		Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
 	}
@@ -220,7 +230,7 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, e
 	return userInfo, nil
 }
 
-func addGothUserFields(gothUser goth.User, userInfo *UserInfo) {
+func addGothUserFields(gothUser goth.User, userInfo *types.UserInfo) {
 	// Store frontend-safe OAuth data in CustomFields
 	if gothUser.Name != "" {
 		userInfo.CustomFields["goth_name"] = gothUser.Name
