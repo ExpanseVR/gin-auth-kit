@@ -26,7 +26,7 @@ var (
 	ErrUserNotFound        = errors.New("user not found")
 )
 
-func validateProvider(name string, provider OAuthProvider) error {
+func validateProvider(name string, provider types.OAuthProvider) error {
 	if provider.ClientID == "" {
 		return fmt.Errorf("%s: ClientID is required", name)
 	}
@@ -53,7 +53,7 @@ func validateProvider(name string, provider OAuthProvider) error {
 	return nil
 }
 
-func createGothProvider(name string, provider OAuthProvider) (goth.Provider, error) {
+func createGothProvider(name string, provider types.OAuthProvider) (goth.Provider, error) {
 	if err := validateProvider(name, provider); err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ type OAuthService struct {
 	FindUserByID    types.FindUserByIDFunc
 }
 
-func NewOAuthService(config *OAuthConfig) *OAuthService {
+func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 	if config == nil {
 		return nil
 	}

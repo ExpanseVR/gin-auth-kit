@@ -15,13 +15,13 @@ import (
 func TestOAuthProviderValidation(t *testing.T) {
 	tests := []struct {
 		name        string
-		provider    OAuthProvider
+		provider    types.OAuthProvider
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "Valid Google Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -31,7 +31,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Missing ClientID",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
 			},
@@ -40,7 +40,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Missing ClientSecret",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:    "test-client-id",
 				RedirectURL: "http://localhost:8080/auth/callback",
 			},
@@ -49,7 +49,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Missing RedirectURL",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 			},
@@ -58,7 +58,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Valid URL with Query Parameters",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback?param=value",
@@ -68,7 +68,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Empty Scope",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -79,7 +79,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Whitespace Scope",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -108,14 +108,14 @@ func TestOAuthProviderValidation(t *testing.T) {
 func TestCreateGothProvider(t *testing.T) {
 	tests := []struct {
 		name         string
-		provider     OAuthProvider
+		provider     types.OAuthProvider
 		providerName string
 		expectError  bool
 		errorMsg     string
 	}{
 		{
 			name: "Valid Google Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
 				RedirectURL:  "http://localhost:8080/auth/google/callback",
@@ -126,7 +126,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Valid GitHub Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-github-client-id",
 				ClientSecret: "test-github-secret",
 				RedirectURL:  "http://localhost:8080/auth/github/callback",
@@ -137,7 +137,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Valid Facebook Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-facebook-client-id",
 				ClientSecret: "test-facebook-secret",
 				RedirectURL:  "http://localhost:8080/auth/facebook/callback",
@@ -148,7 +148,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Unsupported Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -159,7 +159,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Invalid Provider Config",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "", // Missing ClientID
 				ClientSecret: "test-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -202,13 +202,13 @@ func TestCreateGothProvider(t *testing.T) {
 func TestOAuthServiceInitialization(t *testing.T) {
 	tests := []struct {
 		name        string
-		config      *OAuthConfig
+		config      *types.OAuthConfig
 		expectError bool
 	}{
 		{
 			name: "Valid OAuth Config",
-			config: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"google": {
 						ClientID:     "test-google-client-id",
 						ClientSecret: "test-google-secret",
@@ -224,8 +224,8 @@ func TestOAuthServiceInitialization(t *testing.T) {
 		},
 		{
 			name: "Empty Providers",
-			config: &OAuthConfig{
-				Providers:  map[string]OAuthProvider{},
+			config: &types.OAuthConfig{
+				Providers:  map[string]types.OAuthProvider{},
 				BaseURL:    "http://localhost:8080",
 				SuccessURL: "/dashboard",
 				FailureURL: "/login",
@@ -257,8 +257,8 @@ func TestOAuthServiceInitialization(t *testing.T) {
 
 // TestProviderManagement tests provider registration and retrieval
 func TestProviderManagement(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -289,8 +289,8 @@ func TestProviderManagement(t *testing.T) {
 
 // TestOAuthServiceInterface tests that all interface methods are implemented
 func TestOAuthServiceInterface(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -331,13 +331,13 @@ func TestOAuthServiceInterface(t *testing.T) {
 func TestOAuthErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
-		config      *OAuthConfig
+		config      *types.OAuthConfig
 		expectError bool
 	}{
 		{
 			name: "Invalid Provider Config",
-			config: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"google": {
 						ClientID:     "", // Invalid: missing ClientID
 						ClientSecret: "test-secret",
@@ -349,8 +349,8 @@ func TestOAuthErrorHandling(t *testing.T) {
 		},
 		{
 			name: "Unsupported Provider",
-			config: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"unsupported": {
 						ClientID:     "test-client-id",
 						ClientSecret: "test-secret",
@@ -380,8 +380,8 @@ func TestOAuthErrorHandling(t *testing.T) {
 
 // TestUserMapping tests the MapGothUserToUserInfo functionality
 func TestUserMapping(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -501,8 +501,8 @@ func TestUserMapping(t *testing.T) {
 
 // TestUserMappingWithoutCallbacks tests user mapping when callbacks are not provided
 func TestUserMappingWithoutCallbacks(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",

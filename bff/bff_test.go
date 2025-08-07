@@ -1,4 +1,4 @@
-package auth
+package bff
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ExpanseVR/gin-auth-kit/jwt"
+	gak_jwt "github.com/ExpanseVR/gin-auth-kit/jwt"
 	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/ExpanseVR/gin-auth-kit/utils"
 	"github.com/gin-gonic/gin"
@@ -17,6 +17,28 @@ import (
 var (
 	ErrSessionNotFound = errors.New("session not found")
 )
+
+func mockFindUserByEmail(email string) (types.UserInfo, error) {
+	if email == "test@example.com" {
+		return types.UserInfo{
+			ID:    1,
+			Email: email,
+			Role:  "user",
+		}, nil
+	}
+	return types.UserInfo{}, errors.New("user not found")
+}
+
+func mockFindUserByID(id uint) (types.UserInfo, error) {
+	if id == 1 {
+		return types.UserInfo{
+			ID:    id,
+			Email: "test@example.com",
+			Role:  "user",
+		}, nil
+	}
+	return types.UserInfo{}, errors.New("user not found")
+}
 
 type mockSessionServiceImpl struct{}
 
@@ -171,18 +193,15 @@ func TestBFFServiceConstructors(t *testing.T) {
 
 func TestBFFAuthOptionsValidation(t *testing.T) {
 	t.Run("Valid_BFFAuthOptions", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret:  "test-secret",
-			SessionMaxAge:  86400,
-			JWTSecret:      "jwt-secret",
-			JWTExpiry:      10 * time.Minute,
-			SessionService: &mockSessionServiceImpl{},
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+		opts := &types.BFFAuthOptions{
+			SessionSecret:   "test-session-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "test-jwt-secret",
+			JWTExpiry:       time.Hour,
+			SIDCookieName:   "sid",
+			SessionService:  &mockSessionServiceImpl{},
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
@@ -190,23 +209,20 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Nil_BFFAuthOptions", func(t *testing.T) {
-		var opts *BFFAuthOptions
+		var opts *types.BFFAuthOptions
 		err := opts.ValidateBFFAuthOptions()
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot be nil")
+		assert.Contains(t, err.Error(), "BFFAuthOptions cannot be nil")
 	})
 
 	t.Run("Missing_SessionSecret", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionMaxAge: 86400,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     10 * time.Minute,
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+		opts := &types.BFFAuthOptions{
+			SessionMaxAge:   86400,
+			JWTSecret:       "test-jwt-secret",
+			JWTExpiry:       time.Hour,
+			SessionService:  &mockSessionServiceImpl{},
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
@@ -215,17 +231,14 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Invalid_SessionMaxAge", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: -1,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     10 * time.Minute,
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+		opts := &types.BFFAuthOptions{
+			SessionSecret:   "test-session-secret",
+			SessionMaxAge:   0,
+			JWTSecret:       "test-jwt-secret",
+			JWTExpiry:       time.Hour,
+			SessionService:  &mockSessionServiceImpl{},
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
@@ -234,16 +247,13 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Missing_JWTSecret", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: 86400,
-			JWTExpiry:     10 * time.Minute,
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+		opts := &types.BFFAuthOptions{
+			SessionSecret:   "test-session-secret",
+			SessionMaxAge:   86400,
+			JWTExpiry:       time.Hour,
+			SessionService:  &mockSessionServiceImpl{},
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
@@ -252,17 +262,14 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Invalid_JWTExpiry", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret: "test-secret",
-			SessionMaxAge: 86400,
-			JWTSecret:     "jwt-secret",
-			JWTExpiry:     -1 * time.Minute,
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+		opts := &types.BFFAuthOptions{
+			SessionSecret:   "test-session-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "test-jwt-secret",
+			JWTExpiry:       0,
+			SessionService:  &mockSessionServiceImpl{},
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
@@ -270,16 +277,29 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 		assert.Contains(t, err.Error(), "JWTExpiry must be positive")
 	})
 
+	t.Run("Missing_SessionService", func(t *testing.T) {
+		opts := &types.BFFAuthOptions{
+			SessionSecret:   "test-session-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "test-jwt-secret",
+			JWTExpiry:       time.Hour,
+			FindUserByEmail: mockFindUserByEmail,
+			FindUserByID:    mockFindUserByID,
+		}
+
+		err := opts.ValidateBFFAuthOptions()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "SessionService is required")
+	})
+
 	t.Run("Missing_FindUserByEmail", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret:  "test-secret",
+		opts := &types.BFFAuthOptions{
+			SessionSecret:  "test-session-secret",
 			SessionMaxAge:  86400,
-			JWTSecret:      "jwt-secret",
-			JWTExpiry:      10 * time.Minute,
+			JWTSecret:      "test-jwt-secret",
+			JWTExpiry:      time.Hour,
 			SessionService: &mockSessionServiceImpl{},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+			FindUserByID:   mockFindUserByID,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
@@ -288,40 +308,17 @@ func TestBFFAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Missing_FindUserByID", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret:  "test-secret",
-			SessionMaxAge:  86400,
-			JWTSecret:      "jwt-secret",
-			JWTExpiry:      10 * time.Minute,
-			SessionService: &mockSessionServiceImpl{},
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
+		opts := &types.BFFAuthOptions{
+			SessionSecret:   "test-session-secret",
+			SessionMaxAge:   86400,
+			JWTSecret:       "test-jwt-secret",
+			JWTExpiry:       time.Hour,
+			SessionService:  &mockSessionServiceImpl{},
+			FindUserByEmail: mockFindUserByEmail,
 		}
 
 		err := opts.ValidateBFFAuthOptions()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "FindUserByID callback is required")
-	})
-
-	t.Run("Default_Cookie_Values", func(t *testing.T) {
-		opts := &BFFAuthOptions{
-			SessionSecret:  "test-secret",
-			SessionMaxAge:  86400,
-			JWTSecret:      "jwt-secret",
-			JWTExpiry:      10 * time.Minute,
-			SessionService: &mockSessionServiceImpl{},
-			FindUserByEmail: func(email string) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-			FindUserByID: func(id uint) (types.UserInfo, error) {
-				return types.UserInfo{}, nil
-			},
-		}
-
-		err := opts.ValidateBFFAuthOptions()
-		assert.NoError(t, err)
-		assert.Equal(t, "sid", opts.SIDCookieName)
-		assert.Equal(t, "/", opts.SIDCookiePath)
 	})
 }

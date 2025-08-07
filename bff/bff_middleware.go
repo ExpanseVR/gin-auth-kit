@@ -1,10 +1,10 @@
-package auth
+package bff
 
 import (
 	"errors"
 	"net/http"
 
-	"github.com/ExpanseVR/gin-auth-kit/jwt"
+	gak_jwt "github.com/ExpanseVR/gin-auth-kit/jwt"
 	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
 )

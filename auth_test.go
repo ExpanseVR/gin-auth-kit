@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -32,8 +33,35 @@ func mockFindUserByID(id uint) (types.UserInfo, error) {
 	return types.UserInfo{}, ErrUserNotFound
 }
 
+type mockSessionServiceImpl struct{}
+
+func (m *mockSessionServiceImpl) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
+	return "test_sid", nil
+}
+
+func (m *mockSessionServiceImpl) GetSession(sid string) (types.UserInfo, error) {
+	if sid == "" {
+		return types.UserInfo{}, errors.New("invalid session ID")
+	}
+	return types.UserInfo{}, errors.New("session not found")
+}
+
+func (m *mockSessionServiceImpl) DeleteSession(sid string) error {
+	if sid == "" {
+		return errors.New("invalid session ID")
+	}
+	return nil
+}
+
+func (m *mockSessionServiceImpl) ValidateSession(sid string) (types.UserInfo, error) {
+	if sid == "" {
+		return types.UserInfo{}, errors.New("invalid session ID")
+	}
+	return types.UserInfo{}, errors.New("session not found")
+}
+
 func TestJWTOnlyConfiguration(t *testing.T) {
-	opts := &AuthOptions{
+	opts := &types.AuthOptions{
 		JWTSecret:         "test-secret",
 		JWTRealm:         "test",
 		TokenExpireTime:   time.Hour,
@@ -58,7 +86,7 @@ func TestJWTOnlyConfiguration(t *testing.T) {
 }
 
 func TestOAuthConfiguration(t *testing.T) {
-	opts := &AuthOptions{
+	opts := &types.AuthOptions{
 		JWTSecret:         "test-secret",
 		JWTRealm:         "test",
 		TokenExpireTime:   time.Hour,
@@ -68,8 +96,8 @@ func TestOAuthConfiguration(t *testing.T) {
 		SessionMaxAge:     86400,
 		FindUserByEmail:   mockFindUserByEmail,
 		FindUserByID:      mockFindUserByID,
-		OAuth: &OAuthConfig{
-			Providers: map[string]OAuthProvider{
+		OAuth: &types.OAuthConfig{
+			Providers: map[string]types.OAuthProvider{
 				"google": {
 					ClientID:     "test-client-id",
 					ClientSecret: "test-client-secret",
@@ -95,7 +123,7 @@ func TestOAuthConfiguration(t *testing.T) {
 }
 
 func TestBackwardCompatibility(t *testing.T) {
-	opts := &AuthOptions{
+	opts := &types.AuthOptions{
 		JWTSecret:         "test-secret",
 		JWTRealm:         "test",
 		TokenExpireTime:   time.Hour,
@@ -118,7 +146,7 @@ func TestBackwardCompatibility(t *testing.T) {
 
 func TestErrorHandling(t *testing.T) {
 	t.Run("Missing_FindUserByEmail", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:         "test-secret",
 			JWTRealm:         "test",
 			TokenExpireTime:   time.Hour,
@@ -137,7 +165,7 @@ func TestErrorHandling(t *testing.T) {
 	})
 
 	t.Run("Missing_FindUserByID", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:         "test-secret",
 			JWTRealm:         "test",
 			TokenExpireTime:   time.Hour,
@@ -156,7 +184,7 @@ func TestErrorHandling(t *testing.T) {
 	})
 
 	t.Run("Valid_configuration", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:         "test-secret",
 			JWTRealm:         "test",
 			TokenExpireTime:   time.Hour,
@@ -176,7 +204,7 @@ func TestErrorHandling(t *testing.T) {
 
 func TestAuthOptionsValidation(t *testing.T) {
 	t.Run("Valid_AuthOptions", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:         "test-secret",
 			JWTRealm:         "test",
 			TokenExpireTime:   time.Hour,
@@ -193,14 +221,14 @@ func TestAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Nil_AuthOptions", func(t *testing.T) {
-		var opts *AuthOptions = nil
+		var opts *types.AuthOptions = nil
 		err := opts.ValidateAuthOptions()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "AuthOptions cannot be nil")
 	})
 
 	t.Run("Missing_SessionSecret", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:       "test-secret",
 			SessionMaxAge:   86400,
 			FindUserByEmail: mockFindUserByEmail,
@@ -213,7 +241,7 @@ func TestAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Invalid_SessionMaxAge", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:       "test-secret",
 			SessionSecret:   "session-secret",
 			SessionMaxAge:   -1,
@@ -227,11 +255,11 @@ func TestAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("OAuth_Only_Configuration", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			SessionSecret: "session-secret",
 			SessionMaxAge: 86400,
-			OAuth: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			OAuth: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"google": {
 						ClientID:     "test-client-id",
 						ClientSecret: "test-client-secret",
@@ -253,7 +281,7 @@ func TestAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("JWT_Missing_TokenExpireTime", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:       "test-secret",
 			SessionSecret:   "session-secret",
 			SessionMaxAge:   86400,
@@ -267,7 +295,7 @@ func TestAuthOptionsValidation(t *testing.T) {
 	})
 
 	t.Run("Default_Values_Set", func(t *testing.T) {
-		opts := &AuthOptions{
+		opts := &types.AuthOptions{
 			JWTSecret:         "test-secret",
 			TokenExpireTime:   time.Hour,
 			RefreshExpireTime: time.Hour * 24,
@@ -288,7 +316,7 @@ func TestAuthOptionsValidation(t *testing.T) {
 }
 
 func TestGinIntegration(t *testing.T) {
-	opts := &AuthOptions{
+	opts := &types.AuthOptions{
 		JWTSecret:         "test-secret",
 		JWTRealm:         "test",
 		TokenExpireTime:   time.Hour,
@@ -324,7 +352,7 @@ func TestBFFConfiguration(t *testing.T) {
 		SessionService: &mockSessionServiceImpl{},
 	}
 
-	opts := &BFFAuthOptions{
+	opts := &types.BFFAuthOptions{
 		SessionSecret:   "test-session-secret",
 		SessionMaxAge:   86400,
 		JWTSecret:       "test-jwt-secret",
@@ -351,7 +379,7 @@ func TestBFFConfiguration(t *testing.T) {
 
 func TestBFFAndJWTCoexistence(t *testing.T) {
 	// Test traditional JWT service (no BFF services)
-	jwtOpts := &AuthOptions{
+	jwtOpts := &types.AuthOptions{
 		JWTSecret:         "test-jwt-secret",
 		JWTRealm:         "test",
 		TokenExpireTime:   time.Hour,
@@ -381,7 +409,7 @@ func TestBFFAndJWTCoexistence(t *testing.T) {
 		SessionService: &mockSessionServiceImpl{},
 	}
 
-	bffOpts := &BFFAuthOptions{
+	bffOpts := &types.BFFAuthOptions{
 		SessionSecret:   "test-session-secret",
 		SessionMaxAge:   86400,
 		SessionDomain:   "localhost",
@@ -393,8 +421,8 @@ func TestBFFAndJWTCoexistence(t *testing.T) {
 		SessionService:  mockSessionService,
 		FindUserByEmail: mockFindUserByEmail,
 		FindUserByID:    mockFindUserByID,
-		OAuth: &OAuthConfig{
-			Providers: map[string]OAuthProvider{
+		OAuth: &types.OAuthConfig{
+			Providers: map[string]types.OAuthProvider{
 				"google": {
 					ClientID:     "test-client-id",
 					ClientSecret: "test-client-secret",

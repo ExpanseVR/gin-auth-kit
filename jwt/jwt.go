@@ -35,11 +35,11 @@ func NewJWTMiddleware(opts *JWTOptions) (*JWTMiddleware, error) {
 		MaxRefresh:      opts.MaxRefresh,
 		IdentityKey:     opts.IdentityKey,
 		PayloadFunc:     PayloadFunc,
-		IdentityHandler: IdentityHandler(&AuthOptions{
+		IdentityHandler: IdentityHandler(&types.AuthOptions{
 			FindUserByEmail: opts.FindUserByEmail,
 			FindUserByID:    opts.FindUserByID,
 		}),
-		Authenticator:   Authenticator(&AuthOptions{
+		Authenticator:   Authenticator(&types.AuthOptions{
 			FindUserByEmail: opts.FindUserByEmail,
 			FindUserByID:    opts.FindUserByID,
 		}),

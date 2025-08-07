@@ -33,7 +33,7 @@ func PayloadFunc(data any) jwt.MapClaims {
 
 // IdentityHandler retrieves user identity from JWT claims
 // Called when: JWT token is validated - reconstructs user from token claims
-func IdentityHandler(opts *AuthOptions) func(ctx *gin.Context) any {
+func IdentityHandler(opts *types.AuthOptions) func(ctx *gin.Context) any {
 	return func(ctx *gin.Context) any {
 		claims := jwt.ExtractClaims(ctx)
 
@@ -58,7 +58,7 @@ func IdentityHandler(opts *AuthOptions) func(ctx *gin.Context) any {
 
 // Authenticator validates login credentials
 // Called when: User attempts to login - validates email/password combination
-func Authenticator(opts *AuthOptions) func(ctx *gin.Context) (any, error) {
+func Authenticator(opts *types.AuthOptions) func(ctx *gin.Context) (any, error) {
 	return func(ctx *gin.Context) (any, error) {
 		var loginRequest struct {
 			Email    string `json:"email" binding:"required,email"`
