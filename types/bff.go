@@ -25,6 +25,9 @@ type OAuthConfig struct {
 	
 	// Error handling configuration
 	FailOnProviderError bool `json:"fail_on_provider_error"` // If true, service fails fast when providers fail to initialize
+	
+	// User configuration
+	DefaultRole string `json:"default_role"`
 }
 
 // BFFAuthOptions represents configuration for BFF authentication

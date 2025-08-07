@@ -520,6 +520,68 @@ func TestUserMapping(t *testing.T) {
 	}
 }
 
+// TestConfigurableDefaultRole tests that the default role can be configured
+func TestConfigurableDefaultRole(t *testing.T) {
+	// Test with custom default role
+	configWithCustomRole := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		DefaultRole:     "admin", // Custom default role
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthServiceWithCustomRole := NewOAuthService(configWithCustomRole)
+	require.NotNil(t, oauthServiceWithCustomRole)
+
+	// Test new user with custom default role
+	newUser := goth.User{
+		Email: "newuser@example.com",
+		Name:  "New User",
+	}
+
+	userInfo, err := oauthServiceWithCustomRole.MapGothUserToUserInfo(newUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "admin", userInfo.Role)
+	assert.Equal(t, "newuser@example.com", userInfo.Email)
+
+	// Test with default role (no DefaultRole specified)
+	configWithDefaultRole := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		// DefaultRole not specified - should default to "user"
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthServiceWithDefaultRole := NewOAuthService(configWithDefaultRole)
+	require.NotNil(t, oauthServiceWithDefaultRole)
+
+	// Test new user with default role
+	userInfo2, err := oauthServiceWithDefaultRole.MapGothUserToUserInfo(newUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "user", userInfo2.Role) // Should default to "user"
+	assert.Equal(t, "newuser@example.com", userInfo2.Email)
+}
+
 // TestOAuthDataUpdateOnSubsequentLogins tests that OAuth data is updated on subsequent logins
 func TestOAuthDataUpdateOnSubsequentLogins(t *testing.T) {
 	// Create a mock user store to simulate existing user data

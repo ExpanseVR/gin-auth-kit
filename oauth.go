@@ -50,12 +50,19 @@ type OAuthService struct {
 	FailureURL   string
 	FindUserByEmail types.FindUserByEmailFunc
 	FindUserByID    types.FindUserByIDFunc
+	defaultRole  string
 	mu           sync.RWMutex // Protects the Providers map
 }
 
 func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 	if config == nil {
 		return nil
+	}
+
+	// Set default role (defaults to "user" if not specified)
+	defaultRole := config.DefaultRole
+	if defaultRole == "" {
+		defaultRole = "user"
 	}
 
 	service := &OAuthService{
@@ -65,6 +72,7 @@ func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 		FailureURL:   config.FailureURL,
 		FindUserByEmail: config.FindUserByEmail,
 		FindUserByID:    config.FindUserByID,
+		defaultRole:  defaultRole,
 	}
 
 	// Initialize providers from configuration
@@ -190,13 +198,13 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 		} else {
 			userInfo = types.UserInfo{
 				Email: gothUser.Email,
-				Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
+				Role:  auth.defaultRole,
 			}
 		}
 	} else {
 		userInfo = types.UserInfo{
 			Email: gothUser.Email,
-			Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
+			Role:  auth.defaultRole,
 		}
 	}
 
