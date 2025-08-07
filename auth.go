@@ -58,7 +58,11 @@ func NewAuthService(opts *types.AuthOptions) (*AuthService, error) {
 
 	var oauthService *OAuthService
 	if opts.OAuth != nil {
-		oauthService = NewOAuthService(opts.OAuth)
+		var err error
+		oauthService, err = NewOAuthService(opts.OAuth)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize OAuth service: %w", err)
+		}
 	}
 
 	return &AuthService{
@@ -88,7 +92,11 @@ func NewBFFAuthService(opts *types.BFFAuthOptions) (*AuthService, error) {
 
 	var oauthService *OAuthService
 	if opts.OAuth != nil {
-		oauthService = NewOAuthService(opts.OAuth)
+		var err error
+		oauthService, err = NewOAuthService(opts.OAuth)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize OAuth service: %w", err)
+		}
 	}
 
 	return &AuthService{

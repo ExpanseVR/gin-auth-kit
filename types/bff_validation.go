@@ -74,6 +74,13 @@ func (config *OAuthConfig) ValidateOAuthConfig() error {
 		}
 	}
 
+	// Validate that required providers are actually configured
+	for _, requiredProvider := range config.RequiredProviders {
+		if _, exists := config.Providers[requiredProvider]; !exists {
+			return fmt.Errorf("required provider '%s' is not configured", requiredProvider)
+		}
+	}
+
 	if config.BaseURL == "" {
 		return errors.New("BaseURL is required")
 	}

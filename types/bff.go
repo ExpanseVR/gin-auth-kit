@@ -18,6 +18,7 @@ type OAuthConfig struct {
 	BaseURL      string                   `json:"base_url"`
 	SuccessURL   string                   `json:"success_url"`
 	FailureURL   string                   `json:"failure_url"`
+	RequiredProviders []string            `json:"required_providers"` // Providers that must initialize successfully
 	
 	// User management callbacks
 	FindUserByEmail FindUserByEmailFunc `json:"-"`

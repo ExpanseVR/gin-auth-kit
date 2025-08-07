@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
@@ -78,11 +79,12 @@ type OAuthService struct {
 	FailureURL   string
 	FindUserByEmail types.FindUserByEmailFunc
 	FindUserByID    types.FindUserByIDFunc
+	mu           sync.RWMutex // Protects Providers map
 }
 
-func NewOAuthService(config *types.OAuthConfig) *OAuthService {
+func NewOAuthService(config *types.OAuthConfig) (*OAuthService, error) {
 	if config == nil {
-		return nil
+		return nil, nil
 	}
 
 	service := &OAuthService{
@@ -94,18 +96,42 @@ func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 		FindUserByID:    config.FindUserByID,
 	}
 
+	// Track failed providers
+	var failedProviders []string
+
 	// Initialize providers from configuration
 	for name, providerConfig := range config.Providers {
 		provider, err := createGothProvider(name, providerConfig)
 		if err != nil {
 			// Log the error but continue with other providers
 			log.Warn().Err(err).Str("provider", name).Msg("Failed to initialize OAuth provider")
+			failedProviders = append(failedProviders, name)
 			continue
 		}
 		service.Providers[name] = provider
 	}
 
-	// Register all providers with goth at once to avoid overwriting
+	// Check if any required providers failed
+	var requiredProviderErrors []string
+	for _, requiredProvider := range config.RequiredProviders {
+		if _, exists := service.Providers[requiredProvider]; !exists {
+			// Check if it was in the failed list
+			for _, failed := range failedProviders {
+				if failed == requiredProvider {
+					requiredProviderErrors = append(requiredProviderErrors, 
+						fmt.Sprintf("required provider '%s' failed to initialize", requiredProvider))
+					break
+				}
+			}
+			// If we didn't find it in failed list, it wasn't configured
+			if len(requiredProviderErrors) == 0 || requiredProviderErrors[len(requiredProviderErrors)-1] != fmt.Sprintf("required provider '%s' failed to initialize", requiredProvider) {
+				requiredProviderErrors = append(requiredProviderErrors,
+					fmt.Sprintf("required provider '%s' not configured", requiredProvider))
+			}
+		}
+	}
+
+	// Register all successfully initialized providers with goth
 	if len(service.Providers) > 0 {
 		providers := make([]goth.Provider, 0, len(service.Providers))
 		for _, provider := range service.Providers {
@@ -114,21 +140,32 @@ func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 		goth.UseProviders(providers...)
 	}
 
-	return service
+	// Return error if required providers failed, but still return the service
+	if len(requiredProviderErrors) > 0 {
+		return service, fmt.Errorf("OAuth initialization errors: %s", strings.Join(requiredProviderErrors, "; "))
+	}
+
+	return service, nil
 }
 
 func (auth *OAuthService) RegisterProvider(name string, provider goth.Provider) {
+	auth.mu.Lock()
 	auth.Providers[name] = provider
-
-	// Re-register all providers with goth to include the new one
-	providers := make([]goth.Provider, 0, len(auth.Providers))
+	
+	// Create a copy of providers to minimize lock time
+	providersCopy := make([]goth.Provider, 0, len(auth.Providers))
 	for _, p := range auth.Providers {
-		providers = append(providers, p)
+		providersCopy = append(providersCopy, p)
 	}
-	goth.UseProviders(providers...)
+	auth.mu.Unlock()
+
+	// Re-register all providers with goth (outside of lock)
+	goth.UseProviders(providersCopy...)
 }
 
 func (auth *OAuthService) GetProvider(name string) (goth.Provider, error) {
+	auth.mu.RLock()
+	defer auth.mu.RUnlock()
 	provider, exists := auth.Providers[name]
 	if !exists {
 		return nil, ErrProviderNotFound
@@ -212,8 +249,16 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 	// Always update OAuth-specific data to ensure it's current
 	// Try to convert UserID to uint if it exists and not already set
 	if gothUser.UserID != "" && userInfo.ID == 0 {
-		if userID, err := strconv.ParseUint(gothUser.UserID, 10, 32); err == nil {
-			userInfo.ID = uint(userID)
+		// Use 64-bit parsing to handle large IDs from providers like Facebook
+		if userID, err := strconv.ParseUint(gothUser.UserID, 10, 64); err == nil {
+			// Check if it fits in a uint (which might be 32-bit on some systems)
+			if userID <= uint64(^uint(0)) {
+				userInfo.ID = uint(userID)
+			} else {
+				log.Warn().
+					Str("provider_user_id", gothUser.UserID).
+					Msg("OAuth provider UserID too large to fit in uint")
+			}
 		}
 	}
 
