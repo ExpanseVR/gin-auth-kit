@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/ExpanseVR/gin-auth-kit/types"
@@ -497,6 +498,85 @@ func TestUserMapping(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestOAuthDataUpdateOnSubsequentLogins tests that OAuth data is updated on subsequent logins
+func TestOAuthDataUpdateOnSubsequentLogins(t *testing.T) {
+	// Create a mock user store to simulate existing user data
+	existingUser := types.UserInfo{
+		ID:        1,
+		Email:     "test@example.com",
+		Role:      "user",
+		FirstName: "Old",
+		LastName:  "Name",
+		CustomFields: map[string]any{
+			"goth_name":   "Old Name",
+			"nickname":    "oldnick",
+			"avatar_url":  "https://old-avatar.com/avatar.jpg",
+			"location":    "Old Location",
+			"description": "Old description",
+		},
+	}
+
+	// Mock function that returns the existing user
+	mockFindUserByEmail := func(email string) (types.UserInfo, error) {
+		if email == "test@example.com" {
+			return existingUser, nil
+		}
+		return types.UserInfo{}, errors.New("user not found")
+	}
+
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthService := NewOAuthService(config)
+	require.NotNil(t, oauthService)
+
+	// Simulate a subsequent login with updated OAuth data
+	updatedGothUser := goth.User{
+		UserID:      "123",
+		Email:       "test@example.com", // Same email as existing user
+		Name:        "New Name",         // Updated name
+		NickName:    "newnick",          // Updated nickname
+		Description: "New description",  // Updated description
+		AvatarURL:   "https://new-avatar.com/avatar.jpg", // Updated avatar
+		Location:    "New Location",     // Updated location
+	}
+
+	userInfo, err := oauthService.MapGothUserToUserInfo(updatedGothUser)
+	assert.NoError(t, err)
+
+	// Verify that the user ID is preserved (existing user)
+	assert.Equal(t, uint(1), userInfo.ID)
+	assert.Equal(t, "test@example.com", userInfo.Email)
+	assert.Equal(t, "user", userInfo.Role)
+
+	// Verify that OAuth data is updated with new information
+	assert.Equal(t, "New", userInfo.FirstName)
+	assert.Equal(t, "Name", userInfo.LastName)
+	assert.Equal(t, "New Name", userInfo.CustomFields["goth_name"])
+	assert.Equal(t, "newnick", userInfo.CustomFields["nickname"])
+	assert.Equal(t, "New description", userInfo.CustomFields["description"])
+	assert.Equal(t, "https://new-avatar.com/avatar.jpg", userInfo.CustomFields["avatar_url"])
+	assert.Equal(t, "New Location", userInfo.CustomFields["location"])
+
+	// Verify that the old data is no longer present
+	assert.NotEqual(t, "Old", userInfo.FirstName)
+	assert.NotEqual(t, "oldnick", userInfo.CustomFields["nickname"])
+	assert.NotEqual(t, "https://old-avatar.com/avatar.jpg", userInfo.CustomFields["avatar_url"])
 }
 
 // TestUserMappingWithoutCallbacks tests user mapping when callbacks are not provided

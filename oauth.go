@@ -190,26 +190,34 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 		return types.UserInfo{}, errors.New("email is required")
 	}
 
+	// Start with existing user data if available, or create new user info
+	var userInfo types.UserInfo
 	if auth.FindUserByEmail != nil {
 		existingUser, err := auth.FindUserByEmail(gothUser.Email)
 		if err == nil {
-			return existingUser, nil
+			userInfo = existingUser
+		} else {
+			userInfo = types.UserInfo{
+				Email: gothUser.Email,
+				Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
+			}
+		}
+	} else {
+		userInfo = types.UserInfo{
+			Email: gothUser.Email,
+			Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
 		}
 	}
 
-	userInfo := types.UserInfo{
-		Email: gothUser.Email,
-		Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
-	}
-
-	// Try to convert UserID to uint if it exists
-	if gothUser.UserID != "" {
+	// Always update OAuth-specific data to ensure it's current
+	// Try to convert UserID to uint if it exists and not already set
+	if gothUser.UserID != "" && userInfo.ID == 0 {
 		if userID, err := strconv.ParseUint(gothUser.UserID, 10, 32); err == nil {
 			userInfo.ID = uint(userID)
 		}
 	}
 
-	// Extract first and last name from the Name field if available
+	// Extract and update first and last name from the Name field if available
 	if gothUser.Name != "" {
 		names := strings.SplitN(gothUser.Name, " ", 2)
 		if len(names) > 0 {
@@ -220,7 +228,7 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 		}
 	}
 
-	// Add custom fields from Goth user
+	// Initialize CustomFields if nil
 	if userInfo.CustomFields == nil {
 		userInfo.CustomFields = make(map[string]any)
 	}
