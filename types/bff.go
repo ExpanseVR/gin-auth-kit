@@ -22,6 +22,9 @@ type OAuthConfig struct {
 	// User management callbacks
 	FindUserByEmail FindUserByEmailFunc `json:"-"`
 	FindUserByID    FindUserByIDFunc    `json:"-"`
+	
+	// Error handling configuration
+	FailOnProviderError bool `json:"fail_on_provider_error"` // If true, service fails fast when providers fail to initialize
 }
 
 // BFFAuthOptions represents configuration for BFF authentication

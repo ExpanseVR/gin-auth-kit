@@ -238,6 +238,21 @@ func TestOAuthServiceInitialization(t *testing.T) {
 			config:      nil,
 			expectError: true,
 		},
+		{
+			name: "Fail On Provider Error - Invalid Provider",
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
+					"invalid": {
+						// Missing required fields to cause initialization failure
+					},
+				},
+				BaseURL:             "http://localhost:8080",
+				SuccessURL:          "/dashboard",
+				FailureURL:          "/login",
+				FailOnProviderError: true,
+			},
+			expectError: true, // Should fail fast when FailOnProviderError is true
+		},
 	}
 
 	for _, tt := range tests {

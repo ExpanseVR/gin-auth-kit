@@ -97,14 +97,28 @@ func NewOAuthService(config *types.OAuthConfig) *OAuthService {
 	}
 
 	// Initialize providers from configuration
+	var failedProviders []string
 	for name, providerConfig := range config.Providers {
 		provider, err := createGothProvider(name, providerConfig)
 		if err != nil {
+			failedProviders = append(failedProviders, name)
+			if config.FailOnProviderError {
+				log.Error().Err(err).Str("provider", name).Msg("Failed to initialize OAuth provider - failing fast")
+				return nil
+			}
 			// Log the error but continue with other providers
 			log.Warn().Err(err).Str("provider", name).Msg("Failed to initialize OAuth provider")
 			continue
 		}
 		service.Providers[name] = provider
+	}
+
+	if len(failedProviders) > 0 {
+		log.Warn().
+			Strs("failed_providers", failedProviders).
+			Int("total_providers", len(config.Providers)).
+			Int("successful_providers", len(service.Providers)).
+			Msg("Some OAuth providers failed to initialize")
 	}
 
 	// Register all providers with goth at once to avoid overwriting

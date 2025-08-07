@@ -52,6 +52,7 @@ func findUserByEmail(email string) (types.UserInfo, error) {
 - **Custom Field Mapping** - Automatic mapping of OAuth provider data to `CustomFields`
 - **Better JWT Integration** - Custom fields from OAuth providers are included in JWT tokens
 - **OAuth Thread Safety** - Added mutex protection to OAuth provider registration to prevent race conditions
+- **OAuth Error Handling** - Added FailOnProviderError option to control whether service fails fast when providers fail to initialize
 
 ### Changed
 
