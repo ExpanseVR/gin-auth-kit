@@ -1,5 +1,109 @@
 # CHANGELOG
 
+## [1.1.0] – 2025‑08‑07
+
+### Breaking Changes
+
+#### Structural Reorganization
+
+- **Types Package**: Moved `UserInfo` struct and interfaces to dedicated `types` package
+  - `UserInfo` is now in `github.com/ExpanseVR/gin-auth-kit/types`
+  - `AuthMiddleware`, `SessionService`, `FindUserByEmailFunc`, `FindUserByIDFunc` are now in `github.com/ExpanseVR/gin-auth-kit/types`
+  - All imports must be updated to use the new types package
+
+#### Migration Required
+
+**Before:**
+
+```go
+import "github.com/ExpanseVR/gin-auth-kit"
+
+func findUserByEmail(email string) (auth.UserInfo, error) {
+    // ...
+}
+```
+
+**After:**
+
+```go
+import (
+    "github.com/ExpanseVR/gin-auth-kit"
+    "github.com/ExpanseVR/gin-auth-kit/types"
+)
+
+func findUserByEmail(email string) (types.UserInfo, error) {
+    // ...
+}
+```
+
+### Added
+
+#### Extensible UserInfo Struct
+
+- **FirstName and LastName fields** - Added `FirstName` and `LastName` fields to `UserInfo` struct for basic user information
+- **CustomFields support** - Added `CustomFields map[string]any` for extensible user data storage
+- **Helper methods** - Added `GetFullName()`, `SetCustomField()`, and `GetCustomField()` methods
+- **Extensible patterns** - Support for embedding `UserInfo` in custom structs and using `CustomFields` directly
+- **Extensible User Example** - Comprehensive example showing four different patterns for extending `UserInfo`
+
+#### Enhanced OAuth Integration
+
+- **Improved User Mapping** - Enhanced `MapGothUserToUserInfo` to handle UserID conversion and extract first/last names
+- **Custom Field Mapping** - Automatic mapping of OAuth provider data to `CustomFields`
+- **Better JWT Integration** - Custom fields from OAuth providers are included in JWT tokens
+- **OAuth Thread Safety** - Added mutex protection to OAuth provider registration to prevent race conditions
+- **OAuth Error Handling** - Added FailOnProviderError option to control whether service fails fast when providers fail to initialize
+
+### Changed
+
+#### JWT Token Structure
+
+- **Extended Claims** - JWT tokens now include `first_name`, `last_name`, and custom fields (prefixed with `custom_`)
+- **Backward Compatibility** - Existing tokens continue to work, new fields are optional
+
+#### Package Structure
+
+- **Cleaner Organization** - Types and interfaces are now in dedicated `types` package
+- **Better Imports** - Explicit types package import for better clarity
+- **Future Extensibility** - Easier to add new types and interfaces
+- **Internal JWT Package** - JWT functionality is now in internal `gak_jwt` package to avoid naming conflicts
+  - Package name: `gak_jwt` (gin-auth-kit JWT)
+  - Import path: `github.com/ExpanseVR/gin-auth-kit/jwt`
+  - Internal use only - not exposed to external users
+  - Prevents conflicts with standard JWT packages like `github.com/golang-jwt/jwt/v4`
+
+### Fixed
+
+#### Security Improvements
+
+- **Critical Security Vulnerability** - Fixed CVE GO-2025-3770 by updating `github.com/go-chi/chi/v5` from v5.1.0 to v5.2.2
+- **OAuth Security** - Fixed GO-2025-3488 by updating `golang.org/x/oauth2` from v0.17.0 to v0.27.0
+
+## [1.0.3] – 2025‑08‑07
+
+### Added
+
+#### Extensible UserInfo Struct
+
+- **FirstName and LastName fields** - Added `FirstName` and `LastName` fields to `UserInfo` struct for basic user information
+- **CustomFields support** - Added `CustomFields map[string]any` for extensible user data storage
+- **Helper methods** - Added `GetFullName()`, `SetCustomField()`, and `GetCustomField()` methods
+- **Extensible patterns** - Support for embedding `UserInfo` in custom structs and using `CustomFields` directly
+- **Extensible User Example** - Comprehensive example showing four different patterns for extending `UserInfo`
+
+#### Enhanced OAuth Integration
+
+- **Improved User Mapping** - Enhanced `MapGothUserToUserInfo` to handle UserID conversion and extract first/last names
+- **Custom Field Mapping** - Automatic mapping of OAuth provider data to `CustomFields`
+- **Better JWT Integration** - Custom fields from OAuth providers are included in JWT tokens
+
+### Changed
+
+#### JWT Token Structure
+
+- **Extended Claims** - JWT tokens now include `first_name`, `last_name`, and custom fields (prefixed with `custom_`)
+- **Backward Compatibility** - Existing tokens continue to work, new fields are optional
+
 ## [1.0.2] – 2025‑08‑04
 
 ### Added

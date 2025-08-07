@@ -9,18 +9,19 @@ import (
 	"sync"
 	"time"
 
-	auth "github.com/ExpanseVR/gin-auth-kit"
+	"github.com/ExpanseVR/gin-auth-kit"
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // Simple in-memory session store (use Redis/Database in production)
 type SimpleSessionStore struct {
-	sessions map[string]auth.UserInfo
+	sessions map[string]types.UserInfo
 	mutex    sync.RWMutex
 }
 
-func (store *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.Duration) (string, error) {
+func (store *SimpleSessionStore) CreateSession(user types.UserInfo, expiry time.Duration) (string, error) {
 	randomBytes := make([]byte, 32)
 	if _, err := rand.Read(randomBytes); err != nil {
 		return "", err
@@ -35,18 +36,18 @@ func (store *SimpleSessionStore) CreateSession(user auth.UserInfo, expiry time.D
 	return sid, nil
 }
 
-func (store *SimpleSessionStore) ValidateSession(sid string) (auth.UserInfo, error) {
+func (store *SimpleSessionStore) ValidateSession(sid string) (types.UserInfo, error) {
 	store.mutex.RLock()
 	user, exists := store.sessions[sid]
 	store.mutex.RUnlock()
 
 	if !exists {
-		return auth.UserInfo{}, errors.New("session not found")
+		return types.UserInfo{}, errors.New("session not found")
 	}
 	return user, nil
 }
 
-func (store *SimpleSessionStore) GetSession(sid string) (auth.UserInfo, error) {
+func (store *SimpleSessionStore) GetSession(sid string) (types.UserInfo, error) {
 	return store.ValidateSession(sid)
 }
 
@@ -58,29 +59,29 @@ func (store *SimpleSessionStore) DeleteSession(sid string) error {
 }
 
 // Mock database functions
-func findUserByEmail(email string) (auth.UserInfo, error) {
+func findUserByEmail(email string) (types.UserInfo, error) {
 	if email == "user@example.com" {
-		return auth.UserInfo{
+		return types.UserInfo{
 			ID:           1,
 			Email:        email,
 			Role:         "user",
 			PasswordHash: "$2a$12$YYFDEkZTj3cdSwwEV8bKKe5QPCYX8gGTY.faRdFApR7BOX0DvXiau", // "password123"
 		}, nil
 	}
-	return auth.UserInfo{}, errors.New("user not found")
+	return types.UserInfo{}, errors.New("user not found")
 }
 
-func findUserByID(id uint) (auth.UserInfo, error) {
+func findUserByID(id uint) (types.UserInfo, error) {
 	// In a real application, this would query your database
 	if id == 1 {
-		return auth.UserInfo{
+		return types.UserInfo{
 			ID:           1,
 			Email:        "user@example.com",
 			Role:         "user",
 			PasswordHash: "$2a$12$YYFDEkZTj3cdSwwEV8bKKe5QPCYX8gGTY.faRdFApR7BOX0DvXiau", // "password123"
 		}, nil
 	}
-	return auth.UserInfo{}, errors.New("user not found")
+	return types.UserInfo{}, errors.New("user not found")
 }
 
 func verifyPassword(hashedPassword, password string) error {
@@ -187,7 +188,7 @@ func profileHandler(ctx *gin.Context) {
 		ctx.JSON(500, gin.H{"error": "User not found"})
 		return
 	}
-	userInfo := user.(auth.UserInfo)
+	userInfo := user.(types.UserInfo)
 
 	ctx.JSON(200, gin.H{
 		"user_id": userInfo.ID,
@@ -203,7 +204,7 @@ func adminHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "User not found"})
 		return
 	}
-	userInfo := user.(auth.UserInfo)
+	userInfo := user.(types.UserInfo)
 
 	if userInfo.Role != "admin" {
 		c.JSON(403, gin.H{"error": "Admin access required"})
@@ -226,7 +227,7 @@ func publicHandler(ctx *gin.Context) {
 		return
 	}
 
-	userInfo := user.(auth.UserInfo)
+	userInfo := user.(types.UserInfo)
 	ctx.JSON(200, gin.H{
 		"message": "Public endpoint - session found",
 		"user": gin.H{
@@ -239,11 +240,11 @@ func publicHandler(ctx *gin.Context) {
 func main() {
 	// Simple session store
 	sessionStore := &SimpleSessionStore{
-		sessions: make(map[string]auth.UserInfo),
+		sessions: make(map[string]types.UserInfo),
 	}
 
 	// BFF configuration
-	opts := &auth.BFFAuthOptions{
+	opts := &types.BFFAuthOptions{
 		JWTSecret:     "your-jwt-secret-change-in-production",
 		JWTExpiry:     10 * time.Minute,
 		SessionSecret: "your-session-secret-change-in-production",

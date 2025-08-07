@@ -2,36 +2,40 @@ package auth
 
 import (
 	"fmt"
+
+	"github.com/ExpanseVR/gin-auth-kit/bff"
+	gak_jwt "github.com/ExpanseVR/gin-auth-kit/jwt"
+	"github.com/ExpanseVR/gin-auth-kit/types"
 )
 
 type JWTService struct {
-	Middleware AuthMiddleware
+	Middleware types.AuthMiddleware
 }
 
 type BFFService struct {
-	Sessions   SessionService
-	Exchange   *JWTExchangeService
-	Middleware *BFFAuthMiddleware
+	Sessions   types.SessionService
+	Exchange   *gak_jwt.JWTExchangeService
+	Middleware *bff.BFFAuthMiddleware
 }
 
 // AuthService is the main service that provides authentication functionality
 type AuthService struct {
-  JWT   *JWTService
-  BFF   *BFFService
-  OAuth *OAuthService
+	JWT   *JWTService
+	BFF   *BFFService
+	OAuth *OAuthService
 }
 
 // NewAuthService creates a traditional AuthService (stateless/middleware-based)
 // Creates: Optional JWT service + optional OAuth service
 // Use for: Traditional APIs, mobile apps, OAuth-only auth, stateless systems
-func NewAuthService(opts *AuthOptions) (*AuthService, error) {
+func NewAuthService(opts *types.AuthOptions) (*AuthService, error) {
 	if err := opts.ValidateAuthOptions(); err != nil {
 		return nil, fmt.Errorf("invalid AuthOptions: %w", err)
 	}
 
 	var jwtService *JWTService
 	if opts.JWTSecret != "" {
-		jwtMiddleware, err := NewJWTMiddleware(&JWTOptions{
+		jwtMiddleware, err := gak_jwt.NewJWTMiddleware(&gak_jwt.JWTOptions{
 			Realm:             opts.JWTRealm,
 			Key:               []byte(opts.JWTSecret),
 			Timeout:           opts.TokenExpireTime,
@@ -67,14 +71,14 @@ func NewAuthService(opts *AuthOptions) (*AuthService, error) {
 // NewBFFAuthService creates a BFF-centric AuthService (session-based with JWT exchange)
 // Creates: BFF service (always) + optional OAuth service
 // Use for: Backend-for-Frontend pattern, web apps, session-to-JWT conversion
-func NewBFFAuthService(opts *BFFAuthOptions) (*AuthService, error) {
+func NewBFFAuthService(opts *types.BFFAuthOptions) (*AuthService, error) {
 	if err := opts.ValidateBFFAuthOptions(); err != nil {
 		return nil, fmt.Errorf("invalid BFF configuration: %w", err)
 	}
 
 	sessionService := opts.SessionService
-	jwtExchangeService := NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
-	bffMiddleware := NewBFFAuthMiddleware(sessionService, jwtExchangeService, opts.SIDCookieName)
+	jwtExchangeService := gak_jwt.NewJWTExchangeService(opts.JWTSecret, sessionService, opts.JWTExpiry)
+	bffMiddleware := bff.NewBFFAuthMiddleware(sessionService, jwtExchangeService, opts.SIDCookieName)
 
 	bffService := &BFFService{
 		Sessions:   sessionService,
