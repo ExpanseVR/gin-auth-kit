@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/ExpanseVR/gin-auth-kit/types"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
@@ -14,13 +17,13 @@ import (
 func TestOAuthProviderValidation(t *testing.T) {
 	tests := []struct {
 		name        string
-		provider    OAuthProvider
+		provider    types.OAuthProvider
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "Valid Google Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -30,7 +33,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Missing ClientID",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
 			},
@@ -39,7 +42,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Missing ClientSecret",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:    "test-client-id",
 				RedirectURL: "http://localhost:8080/auth/callback",
 			},
@@ -48,7 +51,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Missing RedirectURL",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 			},
@@ -57,7 +60,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Valid URL with Query Parameters",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback?param=value",
@@ -67,7 +70,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Empty Scope",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -78,7 +81,7 @@ func TestOAuthProviderValidation(t *testing.T) {
 		},
 		{
 			name: "Whitespace Scope",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-client-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -91,7 +94,10 @@ func TestOAuthProviderValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateProvider("test-provider", tt.provider)
+			err := tt.provider.ValidateOAuthProvider()
+			if err != nil {
+				err = fmt.Errorf("test-provider: %w", err)
+			}
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -107,14 +113,14 @@ func TestOAuthProviderValidation(t *testing.T) {
 func TestCreateGothProvider(t *testing.T) {
 	tests := []struct {
 		name         string
-		provider     OAuthProvider
+		provider     types.OAuthProvider
 		providerName string
 		expectError  bool
 		errorMsg     string
 	}{
 		{
 			name: "Valid Google Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
 				RedirectURL:  "http://localhost:8080/auth/google/callback",
@@ -125,7 +131,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Valid GitHub Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-github-client-id",
 				ClientSecret: "test-github-secret",
 				RedirectURL:  "http://localhost:8080/auth/github/callback",
@@ -136,7 +142,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Valid Facebook Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-facebook-client-id",
 				ClientSecret: "test-facebook-secret",
 				RedirectURL:  "http://localhost:8080/auth/facebook/callback",
@@ -147,7 +153,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Unsupported Provider",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "test-client-id",
 				ClientSecret: "test-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -158,7 +164,7 @@ func TestCreateGothProvider(t *testing.T) {
 		},
 		{
 			name: "Invalid Provider Config",
-			provider: OAuthProvider{
+			provider: types.OAuthProvider{
 				ClientID:     "", // Missing ClientID
 				ClientSecret: "test-secret",
 				RedirectURL:  "http://localhost:8080/auth/callback",
@@ -201,13 +207,13 @@ func TestCreateGothProvider(t *testing.T) {
 func TestOAuthServiceInitialization(t *testing.T) {
 	tests := []struct {
 		name        string
-		config      *OAuthConfig
+		config      *types.OAuthConfig
 		expectError bool
 	}{
 		{
 			name: "Valid OAuth Config",
-			config: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"google": {
 						ClientID:     "test-google-client-id",
 						ClientSecret: "test-google-secret",
@@ -223,8 +229,8 @@ func TestOAuthServiceInitialization(t *testing.T) {
 		},
 		{
 			name: "Empty Providers",
-			config: &OAuthConfig{
-				Providers:  map[string]OAuthProvider{},
+			config: &types.OAuthConfig{
+				Providers:  map[string]types.OAuthProvider{},
 				BaseURL:    "http://localhost:8080",
 				SuccessURL: "/dashboard",
 				FailureURL: "/login",
@@ -235,6 +241,21 @@ func TestOAuthServiceInitialization(t *testing.T) {
 			name:        "Nil Config",
 			config:      nil,
 			expectError: true,
+		},
+		{
+			name: "Fail On Provider Error - Invalid Provider",
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
+					"invalid": {
+						// Missing required fields to cause initialization failure
+					},
+				},
+				BaseURL:             "http://localhost:8080",
+				SuccessURL:          "/dashboard",
+				FailureURL:          "/login",
+				FailOnProviderError: true,
+			},
+			expectError: true, // Should fail fast when FailOnProviderError is true
 		},
 	}
 
@@ -256,8 +277,8 @@ func TestOAuthServiceInitialization(t *testing.T) {
 
 // TestProviderManagement tests provider registration and retrieval
 func TestProviderManagement(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -288,8 +309,8 @@ func TestProviderManagement(t *testing.T) {
 
 // TestOAuthServiceInterface tests that all interface methods are implemented
 func TestOAuthServiceInterface(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -323,20 +344,21 @@ func TestOAuthServiceInterface(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
 	assert.Equal(t, "user", userInfo.Role)
-	assert.Equal(t, uint(123), userInfo.ID)
+	assert.Equal(t, uint(0), userInfo.ID) // OAuth UserID is now stored as string in CustomFields
+	assert.Equal(t, "123", userInfo.CustomFields["oauth_user_id"]) // OAuth UserID stored as string
 }
 
 // TestOAuthErrorHandling tests OAuth-specific error scenarios
 func TestOAuthErrorHandling(t *testing.T) {
 	tests := []struct {
 		name        string
-		config      *OAuthConfig
+		config      *types.OAuthConfig
 		expectError bool
 	}{
 		{
 			name: "Invalid Provider Config",
-			config: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"google": {
 						ClientID:     "", // Invalid: missing ClientID
 						ClientSecret: "test-secret",
@@ -348,8 +370,8 @@ func TestOAuthErrorHandling(t *testing.T) {
 		},
 		{
 			name: "Unsupported Provider",
-			config: &OAuthConfig{
-				Providers: map[string]OAuthProvider{
+			config: &types.OAuthConfig{
+				Providers: map[string]types.OAuthProvider{
 					"unsupported": {
 						ClientID:     "test-client-id",
 						ClientSecret: "test-secret",
@@ -379,8 +401,8 @@ func TestOAuthErrorHandling(t *testing.T) {
 
 // TestUserMapping tests the MapGothUserToUserInfo functionality
 func TestUserMapping(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -403,7 +425,7 @@ func TestUserMapping(t *testing.T) {
 		gothUser     goth.User
 		expectError  bool
 		errorMsg     string
-		expectedUser UserInfo
+		expectedUser types.UserInfo
 	}{
 		{
 			name: "Valid Goth User with ID",
@@ -413,7 +435,7 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
 				Role:  "user",
@@ -426,7 +448,7 @@ func TestUserMapping(t *testing.T) {
 				Name:  "New User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    0, // No ID for new users
 				Email: "newuser@example.com",
 				Role:  "user",
@@ -440,7 +462,7 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
 				Role:  "user",
@@ -473,7 +495,7 @@ func TestUserMapping(t *testing.T) {
 				Name:   "Test User",
 			},
 			expectError: false,
-			expectedUser: UserInfo{
+			expectedUser: types.UserInfo{
 				ID:    1, // Mock function returns existing user ID
 				Email: "test@example.com",
 				Role:  "user",
@@ -498,10 +520,190 @@ func TestUserMapping(t *testing.T) {
 	}
 }
 
+// TestConfigurableDefaultRole tests that the default role can be configured
+func TestConfigurableDefaultRole(t *testing.T) {
+	// Test with custom default role
+	configWithCustomRole := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		DefaultRole:     "admin", // Custom default role
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthServiceWithCustomRole := NewOAuthService(configWithCustomRole)
+	require.NotNil(t, oauthServiceWithCustomRole)
+
+	// Test new user with custom default role
+	newUser := goth.User{
+		Email: "newuser@example.com",
+		Name:  "New User",
+	}
+
+	userInfo, err := oauthServiceWithCustomRole.MapGothUserToUserInfo(newUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "admin", userInfo.Role)
+	assert.Equal(t, "newuser@example.com", userInfo.Email)
+
+	// Test with default role (no DefaultRole specified)
+	configWithDefaultRole := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		// DefaultRole not specified - should default to "user"
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthServiceWithDefaultRole := NewOAuthService(configWithDefaultRole)
+	require.NotNil(t, oauthServiceWithDefaultRole)
+
+	// Test new user with default role
+	userInfo2, err := oauthServiceWithDefaultRole.MapGothUserToUserInfo(newUser)
+	assert.NoError(t, err)
+	assert.Equal(t, "user", userInfo2.Role) // Should default to "user"
+	assert.Equal(t, "newuser@example.com", userInfo2.Email)
+}
+
+// TestUserMappingErrorHandling tests that system errors are properly handled
+func TestUserMappingErrorHandling(t *testing.T) {
+	// Mock function that returns a system error (not user not found)
+	mockFindUserByEmailWithSystemError := func(email string) (types.UserInfo, error) {
+		return types.UserInfo{}, errors.New("database connection failed")
+	}
+
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		FindUserByEmail: mockFindUserByEmailWithSystemError,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthService := NewOAuthService(config)
+	require.NotNil(t, oauthService)
+
+	// Test that system errors are returned, not treated as "user not found"
+	gothUser := goth.User{
+		Email: "test@example.com",
+		Name:  "Test User",
+	}
+
+	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to find user by email")
+	assert.Contains(t, err.Error(), "database connection failed")
+	assert.Equal(t, types.UserInfo{}, userInfo) // Should return empty UserInfo on error
+}
+
+// TestOAuthDataUpdateOnSubsequentLogins tests that OAuth data is updated on subsequent logins
+func TestOAuthDataUpdateOnSubsequentLogins(t *testing.T) {
+	// Create a mock user store to simulate existing user data
+	existingUser := types.UserInfo{
+		ID:        1,
+		Email:     "test@example.com",
+		Role:      "user",
+		FirstName: "Old",
+		LastName:  "Name",
+		CustomFields: map[string]any{
+			"goth_name":   "Old Name",
+			"nickname":    "oldnick",
+			"avatar_url":  "https://old-avatar.com/avatar.jpg",
+			"location":    "Old Location",
+			"description": "Old description",
+		},
+	}
+
+	// Mock function that returns the existing user
+	mockFindUserByEmail := func(email string) (types.UserInfo, error) {
+		if email == "test@example.com" {
+			return existingUser, nil
+		}
+		return types.UserInfo{}, errors.New("user not found")
+	}
+
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		FindUserByEmail: mockFindUserByEmail,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthService := NewOAuthService(config)
+	require.NotNil(t, oauthService)
+
+	// Simulate a subsequent login with updated OAuth data
+	updatedGothUser := goth.User{
+		UserID:      "123",
+		Email:       "test@example.com", // Same email as existing user
+		Name:        "New Name",         // Updated name
+		NickName:    "newnick",          // Updated nickname
+		Description: "New description",  // Updated description
+		AvatarURL:   "https://new-avatar.com/avatar.jpg", // Updated avatar
+		Location:    "New Location",     // Updated location
+	}
+
+	userInfo, err := oauthService.MapGothUserToUserInfo(updatedGothUser)
+	assert.NoError(t, err)
+
+	// Verify that the user ID is preserved (existing user)
+	assert.Equal(t, uint(1), userInfo.ID)
+	assert.Equal(t, "test@example.com", userInfo.Email)
+	assert.Equal(t, "user", userInfo.Role)
+
+	// Verify that OAuth data is updated with new information
+	assert.Equal(t, "New", userInfo.FirstName)
+	assert.Equal(t, "Name", userInfo.LastName)
+	assert.Equal(t, "New Name", userInfo.CustomFields["goth_name"])
+	assert.Equal(t, "newnick", userInfo.CustomFields["nickname"])
+	assert.Equal(t, "New description", userInfo.CustomFields["description"])
+	assert.Equal(t, "https://new-avatar.com/avatar.jpg", userInfo.CustomFields["avatar_url"])
+	assert.Equal(t, "New Location", userInfo.CustomFields["location"])
+
+	// Verify that the old data is no longer present
+	assert.NotEqual(t, "Old", userInfo.FirstName)
+	assert.NotEqual(t, "oldnick", userInfo.CustomFields["nickname"])
+	assert.NotEqual(t, "https://old-avatar.com/avatar.jpg", userInfo.CustomFields["avatar_url"])
+}
+
 // TestUserMappingWithoutCallbacks tests user mapping when callbacks are not provided
 func TestUserMappingWithoutCallbacks(t *testing.T) {
-	config := &OAuthConfig{
-		Providers: map[string]OAuthProvider{
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
 			"google": {
 				ClientID:     "test-google-client-id",
 				ClientSecret: "test-google-secret",
@@ -528,14 +730,14 @@ func TestUserMappingWithoutCallbacks(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
 	assert.Equal(t, "user", userInfo.Role)
-	assert.Equal(t, uint(123), userInfo.ID)
+	assert.Equal(t, uint(0), userInfo.ID) // OAuth UserID is now stored as string in CustomFields
+	assert.Equal(t, "123", userInfo.CustomFields["oauth_user_id"]) // OAuth UserID stored as string
 }
 
 func TestProviderRegistrationWithoutOverwriting(t *testing.T) {
 	// Create an empty OAuth service
 	service := &OAuthService{
 		Providers: make(map[string]goth.Provider),
-		config:    nil,
 	}
 
 	// Create test providers
