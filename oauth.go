@@ -195,11 +195,13 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 		existingUser, err := auth.FindUserByEmail(gothUser.Email)
 		if err == nil {
 			userInfo = existingUser
-		} else {
+		} else if errors.Is(err, ErrUserNotFound) {
 			userInfo = types.UserInfo{
 				Email: gothUser.Email,
 				Role:  auth.defaultRole,
 			}
+		} else {
+			return types.UserInfo{}, fmt.Errorf("failed to find user by email: %w", err)
 		}
 	} else {
 		userInfo = types.UserInfo{

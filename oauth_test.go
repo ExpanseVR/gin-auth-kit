@@ -582,6 +582,45 @@ func TestConfigurableDefaultRole(t *testing.T) {
 	assert.Equal(t, "newuser@example.com", userInfo2.Email)
 }
 
+// TestUserMappingErrorHandling tests that system errors are properly handled
+func TestUserMappingErrorHandling(t *testing.T) {
+	// Mock function that returns a system error (not user not found)
+	mockFindUserByEmailWithSystemError := func(email string) (types.UserInfo, error) {
+		return types.UserInfo{}, errors.New("database connection failed")
+	}
+
+	config := &types.OAuthConfig{
+		Providers: map[string]types.OAuthProvider{
+			"google": {
+				ClientID:     "test-google-client-id",
+				ClientSecret: "test-google-secret",
+				RedirectURL:  "http://localhost:8080/auth/google/callback",
+				Scopes:       []string{"email", "profile"},
+			},
+		},
+		BaseURL:         "http://localhost:8080",
+		SuccessURL:      "/dashboard",
+		FailureURL:      "/login",
+		FindUserByEmail: mockFindUserByEmailWithSystemError,
+		FindUserByID:    mockFindUserByID,
+	}
+
+	oauthService := NewOAuthService(config)
+	require.NotNil(t, oauthService)
+
+	// Test that system errors are returned, not treated as "user not found"
+	gothUser := goth.User{
+		Email: "test@example.com",
+		Name:  "Test User",
+	}
+
+	userInfo, err := oauthService.MapGothUserToUserInfo(gothUser)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to find user by email")
+	assert.Contains(t, err.Error(), "database connection failed")
+	assert.Equal(t, types.UserInfo{}, userInfo) // Should return empty UserInfo on error
+}
+
 // TestOAuthDataUpdateOnSubsequentLogins tests that OAuth data is updated on subsequent logins
 func TestOAuthDataUpdateOnSubsequentLogins(t *testing.T) {
 	// Create a mock user store to simulate existing user data
