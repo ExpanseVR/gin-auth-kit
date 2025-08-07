@@ -72,6 +72,13 @@ func findUserByEmail(email string) (types.UserInfo, error) {
   - Internal use only - not exposed to external users
   - Prevents conflicts with standard JWT packages like `github.com/golang-jwt/jwt/v4`
 
+### Fixed
+
+#### Security Improvements
+
+- **Critical Security Vulnerability** - Fixed CVE GO-2025-3770 by updating `github.com/go-chi/chi/v5` from v5.1.0 to v5.2.2
+- **OAuth Security** - Fixed GO-2025-3488 by updating `golang.org/x/oauth2` from v0.17.0 to v0.27.0
+
 ## [1.0.3] – 2025‑08‑07
 
 ### Added
