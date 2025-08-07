@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 
@@ -26,36 +25,9 @@ var (
 	ErrUserNotFound        = errors.New("user not found")
 )
 
-func validateProvider(name string, provider types.OAuthProvider) error {
-	if provider.ClientID == "" {
-		return fmt.Errorf("%s: ClientID is required", name)
-	}
-	if provider.ClientSecret == "" {
-		return fmt.Errorf("%s: ClientSecret is required", name)
-	}
-	if provider.RedirectURL == "" {
-		return fmt.Errorf("%s: RedirectURL is required", name)
-	}
-
-	// Validate redirect URL format
-	if _, err := url.Parse(provider.RedirectURL); err != nil {
-		return fmt.Errorf("%s: RedirectURL must be a valid URL: %v", name, err)
-	}
-
-	if len(provider.Scopes) > 0 {
-		for i, scope := range provider.Scopes {
-			if strings.TrimSpace(scope) == "" {
-				return fmt.Errorf("%s: scope %d cannot be empty", name, i)
-			}
-		}
-	}
-
-	return nil
-}
-
 func createGothProvider(name string, provider types.OAuthProvider) (goth.Provider, error) {
-	if err := validateProvider(name, provider); err != nil {
-		return nil, err
+	if err := provider.ValidateOAuthProvider(); err != nil {
+		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 
 	switch strings.ToLower(name) {

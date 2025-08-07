@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/ExpanseVR/gin-auth-kit/types"
@@ -93,7 +94,10 @@ func TestOAuthProviderValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateProvider("test-provider", tt.provider)
+			err := tt.provider.ValidateOAuthProvider()
+			if err != nil {
+				err = fmt.Errorf("test-provider: %w", err)
+			}
 
 			if tt.expectError {
 				assert.Error(t, err)
