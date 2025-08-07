@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -229,15 +228,6 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 		}
 	}
 
-	// Always update OAuth-specific data to ensure it's current
-	// Try to convert UserID to uint if it exists and not already set
-	if gothUser.UserID != "" && userInfo.ID == 0 {
-		if userID, err := strconv.ParseUint(gothUser.UserID, 10, 32); err == nil {
-			userInfo.ID = uint(userID)
-		}
-	}
-
-	// Extract and update first and last name from the Name field if available
 	if gothUser.Name != "" {
 		names := strings.SplitN(gothUser.Name, " ", 2)
 		if len(names) > 0 {
@@ -260,6 +250,9 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (types.UserI
 
 func addGothUserFields(gothUser goth.User, userInfo *types.UserInfo) {
 	// Store frontend-safe OAuth data in CustomFields
+	if gothUser.UserID != "" {
+		userInfo.CustomFields["oauth_user_id"] = gothUser.UserID
+	}
 	if gothUser.Name != "" {
 		userInfo.CustomFields["goth_name"] = gothUser.Name
 	}

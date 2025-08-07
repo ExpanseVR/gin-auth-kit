@@ -340,7 +340,8 @@ func TestOAuthServiceInterface(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
 	assert.Equal(t, "user", userInfo.Role)
-	assert.Equal(t, uint(123), userInfo.ID)
+	assert.Equal(t, uint(0), userInfo.ID) // OAuth UserID is now stored as string in CustomFields
+	assert.Equal(t, "123", userInfo.CustomFields["oauth_user_id"]) // OAuth UserID stored as string
 }
 
 // TestOAuthErrorHandling tests OAuth-specific error scenarios
@@ -624,7 +625,8 @@ func TestUserMappingWithoutCallbacks(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "test@example.com", userInfo.Email)
 	assert.Equal(t, "user", userInfo.Role)
-	assert.Equal(t, uint(123), userInfo.ID)
+	assert.Equal(t, uint(0), userInfo.ID) // OAuth UserID is now stored as string in CustomFields
+	assert.Equal(t, "123", userInfo.CustomFields["oauth_user_id"]) // OAuth UserID stored as string
 }
 
 func TestProviderRegistrationWithoutOverwriting(t *testing.T) {
