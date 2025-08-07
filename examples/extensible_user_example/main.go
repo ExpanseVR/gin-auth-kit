@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	auth "github.com/ExpanseVR/gin-auth-kit"
+	"github.com/ExpanseVR/gin-auth-kit/types"
 )
 
 // Example 1: Embedding UserInfo in a custom struct
 type ExtendedUser struct {
-	auth.UserInfo                    // Embed the base UserInfo
+	types.UserInfo                    // Embed the base UserInfo
 	PhoneNumber    string            `json:"phone_number"`
 	DateOfBirth    *time.Time        `json:"date_of_birth"`
 	ProfilePicture string            `json:"profile_picture"`
@@ -18,7 +18,7 @@ type ExtendedUser struct {
 }
 
 // ToUserInfo converts ExtendedUser to auth.UserInfo
-func (extendedUser *ExtendedUser) ToUserInfo() auth.UserInfo {
+func (extendedUser *ExtendedUser) ToUserInfo() types.UserInfo {
 	userInfo := extendedUser.UserInfo
 
 	// Add custom fields
@@ -32,7 +32,7 @@ func (extendedUser *ExtendedUser) ToUserInfo() auth.UserInfo {
 }
 
 // FromUserInfo creates ExtendedUser from auth.UserInfo
-func FromUserInfo(userInfo auth.UserInfo) *ExtendedUser {
+func FromUserInfo(userInfo types.UserInfo) *ExtendedUser {
 	extendedUser := &ExtendedUser{
 		UserInfo: userInfo,
 	}
@@ -74,41 +74,41 @@ func FromUserInfo(userInfo auth.UserInfo) *ExtendedUser {
 // Example 2: Using CustomFields directly
 type SimpleUserService struct {
 	// In a real implementation, this would have a database connection etc.
-	users map[string]auth.UserInfo
+	users map[string]types.UserInfo
 }
 
 func NewSimpleUserService() *SimpleUserService {
 	return &SimpleUserService{
-		users: make(map[string]auth.UserInfo),
+		users: make(map[string]types.UserInfo),
 	}
 }
 
-func (simpleUserService *SimpleUserService) FindUserByEmail(email string) (auth.UserInfo, error) {
+func (simpleUserService *SimpleUserService) FindUserByEmail(email string) (types.UserInfo, error) {
 	user, exists := simpleUserService.users[email]
 	if !exists {
-		return auth.UserInfo{}, fmt.Errorf("user not found")
+		return types.UserInfo{}, fmt.Errorf("user not found")
 	}
 	return user, nil
 }
 
-func (simpleUserService *SimpleUserService) FindUserByID(id uint) (auth.UserInfo, error) {
+func (simpleUserService *SimpleUserService) FindUserByID(id uint) (types.UserInfo, error) {
 	for _, user := range simpleUserService.users {
 		if user.ID == id {
 			return user, nil
 		}
 	}
-	return auth.UserInfo{}, fmt.Errorf("user not found")
+	return types.UserInfo{}, fmt.Errorf("user not found")
 }
 
 // Example 3: Custom UserInfo with additional methods
 type CustomUserInfo struct {
-	auth.UserInfo
+	types.UserInfo
 }
 
 // NewCustomUserInfo creates a new CustomUserInfo
 func NewCustomUserInfo(id uint, email, role, firstName, lastName string) *CustomUserInfo {
 	return &CustomUserInfo{
-		UserInfo: auth.UserInfo{
+		UserInfo: types.UserInfo{
 			ID:        id,
 			Email:     email,
 			Role:      role,
@@ -152,8 +152,8 @@ func (customUserInfo *CustomUserInfo) GetPhoneNumber() string {
 }
 
 // Example 4: Factory function for creating UserInfo with custom fields
-func CreateUserInfo(id uint, email, role, firstName, lastName string, customFields map[string]any) auth.UserInfo {
-	userInfo := auth.UserInfo{
+func CreateUserInfo(id uint, email, role, firstName, lastName string, customFields map[string]any) types.UserInfo {
+	userInfo := types.UserInfo{
 		ID:           id,
 		Email:        email,
 		Role:         role,
@@ -171,7 +171,7 @@ func main() {
 	// Example 1: Using ExtendedUser
 	fmt.Println("1. Embedding Pattern:")
 	extendedUser := &ExtendedUser{
-		UserInfo: auth.UserInfo{
+		UserInfo: types.UserInfo{
 			ID:        1,
 			Email:     "john.doe@example.com",
 			Role:      "user",
@@ -194,7 +194,7 @@ func main() {
 
 	// Example 2: Using CustomFields directly
 	fmt.Println("\n2. CustomFields Pattern:")
-	simpleUser := auth.UserInfo{
+	simpleUser := types.UserInfo{
 		ID:        2,
 		Email:     "jane.smith@example.com",
 		Role:      "admin",
