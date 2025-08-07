@@ -74,13 +74,22 @@ func (exchangeService *JWTExchangeService) generateJWT(user types.UserInfo) (str
 
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"user_id": user.ID,
-		"email":   user.Email,
-		"role":    user.Role,
-		"iat":     now.Unix(),
-		"exp":     now.Add(exchangeService.jwtExpiry).Unix(),
-		"iss":     "gin-auth-kit",
-		"aud":     "api",
+		"user_id":    user.ID,
+		"email":      user.Email,
+		"role":       user.Role,
+		"first_name": user.FirstName,
+		"last_name":  user.LastName,
+		"iat":        now.Unix(),
+		"exp":        now.Add(exchangeService.jwtExpiry).Unix(),
+		"iss":        "gin-auth-kit",
+		"aud":        "api",
+	}
+
+	// Add custom fields to JWT claims
+	if user.CustomFields != nil {
+		for key, value := range user.CustomFields {
+			claims["custom_"+key] = value
+		}
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
