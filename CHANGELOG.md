@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## [1.0.3] – 2025‑08‑07
+
+### Added
+
+#### Extensible UserInfo Struct
+
+- **FirstName and LastName fields** - Added `FirstName` and `LastName` fields to `UserInfo` struct for basic user information
+- **CustomFields support** - Added `CustomFields map[string]any` for extensible user data storage
+- **Helper methods** - Added `GetFullName()`, `SetCustomField()`, and `GetCustomField()` methods
+- **Extensible patterns** - Support for embedding `UserInfo` in custom structs and using `CustomFields` directly
+- **Extensible User Example** - Comprehensive example showing four different patterns for extending `UserInfo`
+
+#### Enhanced OAuth Integration
+
+- **Improved User Mapping** - Enhanced `MapGothUserToUserInfo` to handle UserID conversion and extract first/last names
+- **Custom Field Mapping** - Automatic mapping of OAuth provider data to `CustomFields`
+- **Better JWT Integration** - Custom fields from OAuth providers are included in JWT tokens
+
+### Changed
+
+#### JWT Token Structure
+
+- **Extended Claims** - JWT tokens now include `first_name`, `last_name`, and custom fields (prefixed with `custom_`)
+- **Backward Compatibility** - Existing tokens continue to work, new fields are optional
+
 ## [1.0.2] – 2025‑08‑04
 
 ### Added

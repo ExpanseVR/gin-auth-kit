@@ -1139,18 +1139,36 @@ See [Go Reference](https://pkg.go.dev/github.com/ExpanseVR/gin-auth-kit#AuthOpti
 
 ```go
 type UserInfo struct {
-    ID           uint   `json:"id"`
-    Email        string `json:"email"`
-    Role         string `json:"role"`
-    PasswordHash string `json:"-"`
+    ID           uint           `json:"id"`
+    Email        string         `json:"email"`
+    Role         string         `json:"role"`
+    FirstName    string         `json:"first_name,omitempty"`
+    LastName     string         `json:"last_name,omitempty"`
+    PasswordHash string         `json:"-"`
+    CustomFields map[string]any `json:"custom_fields,omitempty"`
 }
 ```
+
+The `UserInfo` struct is designed to be extensible. You can:
+
+1. **Use built-in fields** - `FirstName`, `LastName` for basic user information
+2. **Use CustomFields** - Store additional data using `SetCustomField()` and `GetCustomField()`
+3. **Embed in custom structs** - Create your own user struct that embeds `UserInfo`
+
+See [Extensible User Example](examples/extensible_user_example/) for detailed patterns and usage examples.
 
 ## Migration from v1.0.1
 
 See [CHANGELOG.md](CHANGELOG.md) for migration guide from interface-based to callback-based design.
 
 ## Roadmap
+
+### ✅ Completed (v1.0.3)
+
+- [x] Extensible UserInfo struct with FirstName, LastName, and CustomFields
+- [x] Four extensibility patterns (embedding, custom fields, custom methods, factory)
+- [x] Enhanced OAuth integration with automatic field mapping
+- [x] JWT token support for custom fields
 
 ### ✅ Completed (v1.0.2)
 

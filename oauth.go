@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -174,7 +175,6 @@ func (auth *OAuthService) CompleteAuthHandler() gin.HandlerFunc {
 	}
 }
 
-// MapGothUserToUserInfo maps a Goth user to our UserInfo structure
 func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, error) {
 	if gothUser.Email == "" {
 		return UserInfo{}, errors.New("email is required")
@@ -189,9 +189,53 @@ func (auth *OAuthService) MapGothUserToUserInfo(gothUser goth.User) (UserInfo, e
 
 	userInfo := UserInfo{
 		Email: gothUser.Email,
-		Role:  "user", // Default role for OAuth users
-		// Note: ID is left at zero value (0) for new users to allow database to assign unique ID
+		Role:  "user", // Default role for OAuth users. TODO: Make this configurable.
 	}
 
+	// Try to convert UserID to uint if it exists
+	if gothUser.UserID != "" {
+		if userID, err := strconv.ParseUint(gothUser.UserID, 10, 32); err == nil {
+			userInfo.ID = uint(userID)
+		}
+	}
+
+	// Extract first and last name from the Name field if available
+	if gothUser.Name != "" {
+		names := strings.SplitN(gothUser.Name, " ", 2)
+		if len(names) > 0 {
+			userInfo.FirstName = names[0]
+		}
+		if len(names) > 1 {
+			userInfo.LastName = names[1]
+		}
+	}
+
+	// Add custom fields from Goth user
+	if userInfo.CustomFields == nil {
+		userInfo.CustomFields = make(map[string]any)
+	}
+
+	addGothUserFields(gothUser, &userInfo)
+
 	return userInfo, nil
+}
+
+func addGothUserFields(gothUser goth.User, userInfo *UserInfo) {
+	// Store frontend-safe OAuth data in CustomFields
+	if gothUser.Name != "" {
+		userInfo.CustomFields["goth_name"] = gothUser.Name
+	}
+	
+	if gothUser.NickName != "" {
+		userInfo.CustomFields["nickname"] = gothUser.NickName
+	}
+	if gothUser.Description != "" {
+		userInfo.CustomFields["description"] = gothUser.Description
+	}
+	if gothUser.AvatarURL != "" {
+		userInfo.CustomFields["avatar_url"] = gothUser.AvatarURL
+	}
+	if gothUser.Location != "" {
+		userInfo.CustomFields["location"] = gothUser.Location
+	}
 }
